@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wardley">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1c1f1d">
+<meta name="description" content="Minimalist Wardley Mapping sketch tool with OnlineWardleyMaps DSL import and export">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<title>Wardley Sketch</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#1c1f1d; --panel:#23262a; --panel-2:#2b2f31; --panel-3:#32363a;
+  --ink:#edeae0; --ink-dim:#8f8d82; --ink-faint:#605e56;
+  --accent:#e8a33d; --accent-dim:#7a5a28; --accent-2:#4fa8a0; --danger:#c1554b;
+  --line: rgba(237,234,224,0.09); --zone-line: rgba(237,234,224,0.20);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Space Grotesk',sans-serif;
+  height:100dvh; height:var(--app-h, 100dvh);
+  display:flex; flex-direction:column; overflow:hidden;
+  touch-action:none; padding-top:env(safe-area-inset-top);
+}
+
+header{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+  padding:14px 12px 10px 16px; gap:6px;
+}
+.title-wrap{display:flex; flex-direction:column; min-width:0; flex:1;}
+.eyebrow{
+  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em;
+  color:var(--accent); text-transform:uppercase; margin-bottom:2px;
+}
+.save-status{color:var(--ink-faint); opacity:0; transition:opacity .3s ease;}
+.save-status:not(:empty)::before{content:" · ";}
+.save-status.show{opacity:1;}
+.save-status.off{opacity:1; color:var(--danger);}
+#titleInput{
+  background:transparent; border:none; outline:none; color:var(--ink);
+  font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:600;
+  padding:0; width:100%; min-width:0;
+}
+.header-btns{display:flex; gap:5px; flex:0 0 auto;}
+.icon-btn{
+  width:36px; height:36px; border-radius:10px; border:1px solid var(--line);
+  background:var(--panel); color:var(--ink-dim);
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.icon-btn:active{background:var(--panel-2); color:var(--ink);}
+.icon-btn svg{width:17px; height:17px;}
+
+.map-area{
+  flex:1 1 auto; display:flex; min-height:0;
+  padding:0 10px calc(56px + env(safe-area-inset-bottom)) 6px;
+}
+.y-axis{
+  flex:0 0 20px; display:flex; flex-direction:column;
+  justify-content:space-between; padding:6px 0 30px 2px;
+}
+.y-axis span{
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.12em;
+  color:var(--ink-faint); writing-mode:vertical-rl; transform:rotate(180deg);
+}
+.canvas-col{flex:1; min-width:0; display:flex; flex-direction:column; position:relative;}
+.canvas-wrap{
+  flex:1; position:relative; border:1px solid var(--line);
+  border-radius:14px; background:var(--panel); overflow:hidden;
+}
+svg#board{width:100%; height:100%; display:block; touch-action:none;}
+.zone-labels{display:flex; margin-top:6px; padding:0 1px;}
+.zone-labels span{
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em;
+  color:var(--ink-faint); text-align:center; text-transform:uppercase;
+}
+.hint{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align:center; color:var(--ink-faint); font-size:13px; line-height:1.6;
+  pointer-events:none; padding:0 30px;
+}
+.hint b{color:var(--ink-dim); font-weight:600;}
+
+.link-banner{
+  position:absolute; top:10px; left:10px; right:10px;
+  background:var(--accent-2); color:#0f2624; font-size:12.5px; font-weight:600;
+  padding:9px 10px; border-radius:10px;
+  display:flex; align-items:center; justify-content:space-between; gap:8px; z-index:5;
+}
+.link-banner[hidden]{display:none;}
+.link-banner button{
+  background:rgba(15,38,36,.15); border:none; color:#0f2624;
+  width:22px; height:22px; border-radius:6px;
+  display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.link-banner svg{width:14px;height:14px;}
+
+.zoom-reset{
+  position:absolute; bottom:10px; right:10px; z-index:6;
+  background:var(--panel-3); border:1px solid rgba(237,234,224,.14);
+  color:var(--ink-dim); font-family:'JetBrains Mono',monospace;
+  font-size:11px; font-weight:500; letter-spacing:.04em;
+  padding:7px 11px; border-radius:20px; display:none; align-items:center; gap:6px;
+}
+.zoom-reset.show{display:flex;}
+.zoom-reset svg{width:13px; height:13px;}
+
+.carried{
+  position:absolute; bottom:10px; left:10px; z-index:6;
+  background:var(--panel-3); border:1px solid rgba(237,234,224,.14);
+  color:var(--ink-faint); font-family:'JetBrains Mono',monospace;
+  font-size:10px; letter-spacing:.03em; padding:6px 10px; border-radius:20px;
+  display:none;
+}
+.carried.show{display:block;}
+
+.add-popup{
+  position:fixed; z-index:20; background:var(--panel-2);
+  border:1px solid var(--panel-3); border-radius:12px; padding:8px;
+  display:flex; gap:6px; align-items:center; box-shadow:0 8px 24px rgba(0,0,0,.4);
+}
+.add-popup input{
+  background:var(--panel-3); border:1px solid transparent; border-radius:8px;
+  color:var(--ink); font-family:'Space Grotesk',sans-serif; font-size:14px;
+  padding:8px 10px; outline:none; width:118px;
+}
+.add-popup input:focus{border-color:var(--accent);}
+.add-popup button{
+  border:none; border-radius:8px; width:34px; height:34px;
+  display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.pop-add{background:var(--accent); color:#241a06;}
+.pop-cancel{background:var(--panel-3); color:var(--ink-dim);}
+.add-popup svg{width:15px;height:15px;}
+.seg{display:flex; background:var(--panel-3); border-radius:8px; overflow:hidden; flex:0 0 auto;}
+.seg button{
+  width:auto; padding:0 9px; height:34px; border-radius:0; background:transparent;
+  color:var(--ink-faint); font-family:'JetBrains Mono',monospace; font-size:10px;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+.seg button.on{background:var(--accent); color:#241a06;}
+
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:25;
+  background:var(--panel); border-top:1px solid var(--line);
+  border-radius:16px 16px 0 0; max-height:56px; overflow:hidden;
+  transition:max-height .22s ease; padding-bottom:env(safe-area-inset-bottom);
+  box-shadow:0 -8px 24px rgba(0,0,0,.28);
+}
+.sheet.expanded{max-height:60vh;}
+.sheet-handle{
+  height:56px; flex:0 0 56px; display:flex; align-items:center;
+  justify-content:space-between; padding:0 16px; cursor:pointer;
+}
+.sheet-handle-left{display:flex; align-items:center; gap:10px;}
+.grabber{width:30px; height:3px; border-radius:2px; background:var(--ink-faint);}
+.sheet-count{font-size:13px; color:var(--ink-dim); font-weight:500;}
+.chev{color:var(--ink-faint); transition:transform .22s ease;}
+.sheet.expanded .chev{transform:rotate(180deg);}
+.sheet-list{overflow-y:auto; touch-action:pan-y; padding:0 10px 14px; max-height:calc(60vh - 56px);}
+.empty-row{color:var(--ink-faint); font-size:13px; text-align:center; padding:20px 10px 26px;}
+.row{
+  display:flex; align-items:center; gap:8px; background:var(--panel-2);
+  border:1px solid transparent; border-radius:10px;
+  padding:8px 8px 8px 10px; margin-bottom:6px;
+}
+.row.selected{border-color:var(--accent); background:var(--panel-3); border-bottom-left-radius:0; border-bottom-right-radius:0; margin-bottom:0;}
+.row-dot{width:9px; height:9px; border-radius:50%; background:var(--accent); flex:0 0 auto;}
+.row-dot.anchor{border-radius:2px;}
+.row-dot.market,.row-dot.ecosystem{background:transparent; border:2px solid var(--accent);}
+.row-dot.submap{border-radius:2px; background:transparent; border:2px solid var(--accent);}
+.row-dot.note{background:var(--ink-faint); border-radius:1px;}
+.row-name{
+  flex:1; min-width:0; background:transparent; border:none; outline:none;
+  color:var(--ink); font-family:'Space Grotesk',sans-serif; font-size:14px; padding:4px 2px;
+}
+.row-meta{
+  font-family:'JetBrains Mono',monospace; font-size:9.5px;
+  color:var(--ink-faint); flex:0 0 auto; padding-right:2px;
+}
+.row-btn{
+  width:30px; height:30px; border-radius:8px; border:none; background:transparent;
+  color:var(--ink-dim); display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+}
+.row-btn:active{background:var(--panel-3);}
+.row-btn.link-on{color:var(--accent-2);}
+.row-btn.del:active{color:var(--danger);}
+.row-btn svg{width:16px;height:16px;}
+
+.detail{
+  background:var(--panel-3); border:1px solid var(--accent); border-top:none;
+  border-radius:0 0 10px 10px; padding:10px; margin-bottom:6px;
+  display:flex; flex-direction:column; gap:9px;
+}
+.detail-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.detail-label{
+  font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--ink-faint); flex:0 0 58px;
+}
+.chip{
+  border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim);
+  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em;
+  text-transform:uppercase; padding:5px 9px; border-radius:7px; cursor:pointer;
+}
+.chip.on{background:var(--accent); color:#241a06; border-color:var(--accent);}
+.detail input[type=range]{flex:1; min-width:90px; accent-color:var(--accent);}
+.evo-val{
+  font-family:'JetBrains Mono',monospace; font-size:10.5px;
+  color:var(--accent); flex:0 0 34px; text-align:right;
+}
+
+.overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  display:flex; align-items:center; justify-content:center; padding:24px; z-index:40;
+}
+.overlay[hidden]{display:none;}
+.card{
+  background:var(--panel); border:1px solid var(--panel-3); border-radius:16px;
+  padding:18px; width:100%; max-width:440px; max-height:82vh;
+  display:flex; flex-direction:column; gap:12px;
+}
+.card h2{margin:0; font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px;}
+.card h2 .eyebrow{margin:0;}
+.card p{margin:0; font-size:13px; color:var(--ink-dim); line-height:1.5;}
+textarea#dslOut, textarea#dslIn{
+  width:100%; min-height:170px; max-height:38vh;
+  background:var(--panel-2); border:1px solid var(--panel-3); border-radius:10px;
+  font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.6;
+  padding:10px; resize:none; outline:none;
+}
+textarea#dslOut{color:var(--accent-2);}
+textarea#dslIn{color:var(--ink);}
+textarea#dslIn:focus{border-color:var(--accent);}
+textarea#dslIn::placeholder{color:var(--ink-faint);}
+.import-warn{
+  background:var(--panel-2); border-left:2px solid var(--accent); border-radius:6px;
+  padding:8px 10px; font-size:12px; line-height:1.5; color:var(--ink-dim);
+}
+.import-warn[hidden]{display:none;}
+.card-actions{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;}
+.file-btn{display:inline-flex; align-items:center; cursor:pointer; margin-right:auto;}
+.btn{
+  border:none; border-radius:9px; padding:10px 16px;
+  font-family:'Space Grotesk',sans-serif; font-size:13.5px; font-weight:600; cursor:pointer;
+}
+.btn-ghost{background:var(--panel-3); color:var(--ink-dim);}
+.btn-accent{background:var(--accent); color:#241a06;}
+.btn-danger{background:var(--danger); color:#2a0b08;}
+
+.toast{
+  position:fixed; bottom:calc(70px + env(safe-area-inset-bottom)); left:50%;
+  transform:translateX(-50%) translateY(10px);
+  background:var(--panel-3); color:var(--ink); font-size:12.5px; font-weight:500;
+  padding:9px 16px; border-radius:20px; opacity:0; pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease; z-index:50;
+  border:1px solid rgba(237,234,224,.12); max-width:82vw; text-align:center;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+.press-indicator{
+  position:fixed; width:46px; height:46px; border-radius:50%;
+  border:2px solid var(--accent); transform:translate(-50%,-50%) scale(0.25);
+  opacity:0; pointer-events:none; z-index:15;
+  transition:transform 450ms linear, opacity 120ms linear;
+}
+.press-indicator.active{transform:translate(-50%,-50%) scale(1); opacity:0.9;}
+.press-indicator.pop{transition:transform 160ms ease-out, opacity 160ms ease-out; transform:translate(-50%,-50%) scale(1.35); opacity:0;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-wrap">
+    <span class="eyebrow">Wardley Sketch<span class="save-status" id="saveStatus"></span></span>
+    <input id="titleInput" value="Untitled Map" maxlength="60">
+  </div>
+  <div class="header-btns">
+    <button class="icon-btn" id="importBtn" title="Import DSL">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3"/><path d="M6 9l6-6 6 6"/><path d="M4 20h16"/></svg>
+    </button>
+    <button class="icon-btn" id="exportBtn" title="Export DSL">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="M6 11l6 6 6-6"/><path d="M4 20h16"/></svg>
+    </button>
+    <button class="icon-btn" id="clearBtn" title="Clear map">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="map-area">
+  <div class="y-axis"><span>VISIBLE</span><span>INVISIBLE</span></div>
+  <div class="canvas-col">
+    <div class="canvas-wrap" id="canvasWrap">
+      <svg id="board" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent-2)"></path>
+          </marker>
+          <marker id="arrowBack" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M10,0 L0,5 L10,10 z" fill="var(--accent-2)"></path>
+          </marker>
+          <marker id="ghostArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+          </marker>
+        </defs>
+        <g id="gridLayer"></g>
+        <g id="edgesLayer"></g>
+        <g id="evolveLayer"></g>
+        <g id="nodesLayer"></g>
+        <g id="notesLayer"></g>
+      </svg>
+      <div class="hint" id="hint"><b>Hold</b> the board to place a component<br>Drag to reposition &middot; pinch to zoom</div>
+      <div class="link-banner" id="linkBanner" hidden>
+        <span id="linkBannerText">Linking &mdash; tap another component</span>
+        <button id="linkCancelBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="carried" id="carried"></div>
+      <button class="zoom-reset" id="zoomResetBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3"/><path d="M16 3h3a2 2 0 012 2v3"/><path d="M8 21H5a2 2 0 01-2-2v-3"/><path d="M16 21h3a2 2 0 002-2v-3"/></svg>
+        <span id="zoomPct">100%</span>
+      </button>
+    </div>
+    <div class="zone-labels">
+      <span style="flex-basis:17%">Genesis</span>
+      <span style="flex-basis:23%">Custom-Built</span>
+      <span style="flex-basis:35%">Product</span>
+      <span style="flex-basis:25%">Commodity</span>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-handle" id="sheetHandle">
+    <div class="sheet-handle-left">
+      <div class="grabber"></div>
+      <span class="sheet-count" id="sheetCount">0 components</span>
+    </div>
+    <svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div class="sheet-list" id="sheetList"></div>
+</div>
+
+<div class="overlay" id="importOverlay" hidden>
+  <div class="card">
+    <h2><span class="eyebrow" style="font-size:10px;">Import DSL</span></h2>
+    <p>Paste OnlineWardleyMaps syntax. Components, anchors, evolve, inertia, notes and all link types are drawn; pipelines, annotations and styling are carried through untouched on export.</p>
+    <textarea id="dslIn" spellcheck="false" placeholder="title My Map&#10;&#10;anchor Customer [0.95, 0.55]&#10;component Website [0.70, 0.75]&#10;evolve Website 0.85&#10;&#10;Customer-&gt;Website"></textarea>
+    <div class="import-warn" id="importWarn" hidden></div>
+    <div class="card-actions">
+      <label class="btn btn-ghost file-btn">Open file<input type="file" id="dslFile" accept=".owm,.txt,.md,text/plain" style="display:none"></label>
+      <button class="btn btn-ghost" id="importCloseBtn">Cancel</button>
+      <button class="btn btn-accent" id="importGoBtn">Replace map</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="exportOverlay" hidden>
+  <div class="card">
+    <h2><span class="eyebrow" style="font-size:10px;">DSL</span></h2>
+    <p>OnlineWardleyMaps syntax — paste into wardleymaps.ai or any compatible renderer, or save it as a file you can reopen here later.</p>
+    <textarea id="dslOut" readonly spellcheck="false"></textarea>
+    <div class="card-actions">
+      <button class="btn btn-ghost" id="exportCloseBtn">Close</button>
+      <button class="btn btn-ghost" id="saveFileBtn">Save file</button>
+      <button class="btn btn-accent" id="copyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="clearOverlay" hidden>
+  <div class="card">
+    <h2>Clear map?</h2>
+    <p>This removes every element and anything carried through from an import. There's no undo.</p>
+    <div class="card-actions">
+      <button class="btn btn-ghost" id="clearCancelBtn">Cancel</button>
+      <button class="btn btn-danger" id="clearConfirmBtn">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Viewport height fix ----------
+  function syncViewportHeight(){
+    const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+    document.documentElement.style.setProperty('--app-h', h + 'px');
+    window.scrollTo(0, 0);
+  }
+  syncViewportHeight();
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', syncViewportHeight);
+    window.visualViewport.addEventListener('scroll', syncViewportHeight);
+  }
+  window.addEventListener('resize', syncViewportHeight);
+  window.addEventListener('orientationchange', ()=> setTimeout(syncViewportHeight, 200));
+  document.addEventListener('focusout', ()=>{
+    setTimeout(syncViewportHeight, 50);
+    setTimeout(syncViewportHeight, 300);
+  }, true);
+
+  // ---------- State ----------
+  // nodes: {id,name,kind,x,y,inertia,label,decorators,url,extra,evolve}
+  // links: {id,a,b,op,flowLabel,ctx}
+  // notes: {id,text,x,y}
+  // preserved: raw OWM statements we don't draw but never destroy
+  let title = "Untitled Map";
+  let nodes = [], links = [], notes = [], preserved = [];
+  let nextId = 1;
+  let selectedId = null, selectedKind = null;   // 'node' | 'note'
+  let linkFromId = null;
+  let dragId = null, dragKind = null;
+  let dragMoved = false, pointerStart = null;
+  let pendingAddFrac = null, addType = 'component';
+  let longPressTimer = null, longPressFired = false, pressIndicator = null;
+  const LONG_PRESS_MS = 450;
+
+  let zoomLevel = 1;
+  const ZOOM_MIN = 1, ZOOM_MAX = 4.5;
+  let vb = {x:0, y:0, w:1000, h:1000};
+  const pointers = new Map();
+  let pinchDist = null, panLast = null, multiTouchOccurred = false;
+
+  const NODE_KINDS = ['component','anchor','market','ecosystem','submap'];
+
+  // ---------- DOM ----------
+  const board = document.getElementById('board');
+  const gridLayer = document.getElementById('gridLayer');
+  const edgesLayer = document.getElementById('edgesLayer');
+  const evolveLayer = document.getElementById('evolveLayer');
+  const nodesLayer = document.getElementById('nodesLayer');
+  const notesLayer = document.getElementById('notesLayer');
+  const hint = document.getElementById('hint');
+  const linkBanner = document.getElementById('linkBanner');
+  const linkBannerText = document.getElementById('linkBannerText');
+  const sheet = document.getElementById('sheet');
+  const sheetHandle = document.getElementById('sheetHandle');
+  const sheetList = document.getElementById('sheetList');
+  const sheetCount = document.getElementById('sheetCount');
+  const titleInput = document.getElementById('titleInput');
+  const toastEl = document.getElementById('toast');
+  const zoomResetBtn = document.getElementById('zoomResetBtn');
+  const zoomPct = document.getElementById('zoomPct');
+  const saveStatus = document.getElementById('saveStatus');
+  const carriedEl = document.getElementById('carried');
+
+  // ---------- Helpers ----------
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toastEl.classList.remove('show'), 2000);
+  }
+  function clientToFrac(clientX, clientY){
+    const r = board.getBoundingClientRect();
+    const relX = (clientX - r.left) / r.width, relY = (clientY - r.top) / r.height;
+    let fx = (vb.x + relX*vb.w)/1000, fy = (vb.y + relY*vb.h)/1000;
+    return {x: Math.min(0.97, Math.max(0.03, fx)), y: Math.min(0.97, Math.max(0.03, fy))};
+  }
+  function applyViewBox(){
+    board.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+    zoomPct.textContent = Math.round(zoomLevel*100) + '%';
+    zoomResetBtn.classList.toggle('show', zoomLevel > 1.02);
+  }
+  function clampVb(){
+    vb.w = Math.max(1000/ZOOM_MAX, Math.min(1000, vb.w));
+    vb.h = Math.max(1000/ZOOM_MAX, Math.min(1000, vb.h));
+    vb.x = Math.max(0, Math.min(1000 - vb.w, vb.x));
+    vb.y = Math.max(0, Math.min(1000 - vb.h, vb.y));
+  }
+  function resetZoom(){ zoomLevel = 1; vb = {x:0,y:0,w:1000,h:1000}; applyViewBox(); }
+  zoomResetBtn.addEventListener('click', resetZoom);
+
+  function buildGrid(){
+    let s = '';
+    for(let i=1;i<4;i++) s += `<line x1="0" y1="${i*250}" x2="1000" y2="${i*250}" stroke="var(--line)" stroke-width="1"/>`;
+    [170,400,750].forEach(x=>{
+      s += `<line x1="${x}" y1="0" x2="${x}" y2="1000" stroke="var(--zone-line)" stroke-width="1.5" stroke-dasharray="3 6"/>`;
+    });
+    gridLayer.innerHTML = s;
+  }
+  buildGrid();
+
+  // ============================================================
+  // DSL: tokenizer + serializer
+  // Anything not modelled explicitly is preserved verbatim.
+  // ============================================================
+  const clamp = v => Math.min(0.97, Math.max(0.03, v));
+  const r2 = v => Math.round(v*100)/100;
+
+  function parseTrailing(rest){
+    const out = {label:null, inertia:false, decorators:[], url:null, extra:''};
+    let s = ' ' + (rest||'') + ' ';
+    // url(key) first — the decorator regex would otherwise eat the key.
+    const um = s.match(/\surl\s*\(\s*([^)]*?)\s*\)/i);
+    if(um){ out.url = um[1]; s = s.replace(um[0], ' '); }
+    const lm = s.match(/\s+label\s*\[\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\]/i);
+    if(lm){ out.label = {x:parseFloat(lm[1]), y:parseFloat(lm[2])}; s = s.replace(lm[0], ' '); }
+    const im = s.match(/\s+inertia\b/i);
+    if(im){ out.inertia = true; s = s.replace(im[0], ' '); }
+    const dm = s.match(/\(([^)]*)\)/);
+    if(dm){ out.decorators = dm[1].split(',').map(t=>t.trim()).filter(Boolean); s = s.replace(dm[0], ' '); }
+    out.extra = s.trim();
+    return out;
+  }
+  function serializeTrailing(n){
+    let s = '';
+    if(n.url) s += ` url(${n.url})`;
+    if(n.label) s += ` label [${n.label.x}, ${n.label.y}]`;
+    if(n.inertia) s += ' inertia';
+    if(n.decorators && n.decorators.length) s += ` (${n.decorators.join(', ')})`;
+    if(n.extra) s += ' ' + n.extra;
+    return s;
+  }
+  const LINK_OPS = [
+    {re:/\+'([^']*)'>/, op:"flowLabel"},
+    {re:/\+<>/, op:"+<>"}, {re:/\+</, op:"+<"}, {re:/\+>/, op:"+>"},
+    {re:/-\.->/, op:"-.->"}, {re:/-->/, op:"-->"}, {re:/->/, op:"->"}
+  ];
+
+  function parseDSL(text){
+    const res = {title:null, nodes:[], links:[], notes:[], preserved:[], skipped:0, stats:{}};
+    const seen = new Map();
+    const rawLinks = [];
+    const lines = String(text).split(/\r?\n/);
+
+    for(let i=0;i<lines.length;i++){
+      const line = lines[i].trim();
+      if(!line || line.startsWith('//')) continue;
+
+      let m = line.match(/^title\s+(.+)$/i);
+      if(m){ res.title = m[1].trim().slice(0,60); continue; }
+
+      m = line.match(/^pipeline\s+(.+?)\s*\{\s*$/i);
+      if(m){
+        const body = []; let depth = 1, j = i+1;
+        while(j < lines.length && depth > 0){
+          const l = lines[j];
+          if(/\{\s*$/.test(l.trim())) depth++;
+          if(/^\s*\}/.test(l)){ depth--; if(depth===0) break; }
+          body.push(l); j++;
+        }
+        res.preserved.push({kind:'pipelineBlock', name:m[1].trim(), body:body.join('\n')});
+        i = j; continue;
+      }
+      m = line.match(/^pipeline\s+(.+?)\s*(\[.*\])?\s*$/i);
+      if(m){ res.preserved.push({kind:'pipeline', name:m[1].trim(), rest:(m[2]||'').trim()}); continue; }
+
+      m = line.match(new RegExp('^('+NODE_KINDS.join('|')+')\\s+(.+?)\\s*\\[\\s*(-?[\\d.]+)\\s*,\\s*(-?[\\d.]+)\\s*\\](.*)$','i'));
+      if(m){
+        const kind = m[1].toLowerCase();
+        const name = m[2].trim().slice(0,40);
+        const vis = parseFloat(m[3]), evo = parseFloat(m[4]);
+        if(!name || !isFinite(vis) || !isFinite(evo)){ res.skipped++; continue; }
+        const key = name.toLowerCase();
+        if(seen.has(key)){ res.stats.dupes = (res.stats.dupes||0)+1; continue; }
+        seen.set(key, name);
+        const t = parseTrailing(m[5]);
+        res.nodes.push({name, kind, x:r2(clamp(evo)), y:r2(clamp(1-vis)),
+          label:t.label, inertia:t.inertia, decorators:t.decorators,
+          url:t.url, extra:t.extra, evolve:null});
+        continue;
+      }
+
+      m = line.match(/^evolve\s+(.+?)\s+(-?[\d.]+)\s*(.*)$/i);
+      if(m){
+        let target = m[1].trim(), newName = null;
+        const arrow = target.split('->');
+        if(arrow.length === 2){ target = arrow[0].trim(); newName = arrow[1].trim(); }
+        const t = parseTrailing(m[3]);
+        res.preserved.push({kind:'evolve', name:target, newName, to:parseFloat(m[2]),
+          label:t.label, decorators:t.decorators, extra:t.extra});
+        continue;
+      }
+
+      m = line.match(/^note\s+(.+?)\s*\[\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\]\s*$/i);
+      if(m){
+        const vis = parseFloat(m[2]), evo = parseFloat(m[3]);
+        if(isFinite(vis) && isFinite(evo)){
+          res.notes.push({text:m[1].trim().slice(0,80), x:r2(clamp(evo)), y:r2(clamp(1-vis))});
+          continue;
+        }
+      }
+
+      let body = line, ctx = null;
+      const semi = body.indexOf(';');
+      if(semi > -1){ ctx = body.slice(semi+1).trim() || null; body = body.slice(0, semi); }
+      let matched = null;
+      for(const cand of LINK_OPS){
+        const mm = body.match(cand.re);
+        if(mm){
+          const idx = body.indexOf(mm[0]);
+          const a = body.slice(0, idx).trim(), b = body.slice(idx+mm[0].length).trim();
+          if(a && b) matched = {a, b, op: cand.op==='flowLabel' ? "+'>" : cand.op,
+                                flowLabel: cand.op==='flowLabel' ? mm[1] : null, ctx};
+          break;
+        }
+      }
+      if(matched){ rawLinks.push(matched); continue; }
+
+      res.preserved.push({kind:'raw', raw:line});
+    }
+
+    let unresolved = 0;
+    const pairSeen = new Set();
+    rawLinks.forEach(l=>{
+      const ka = l.a.toLowerCase(), kb = l.b.toLowerCase();
+      if(!seen.has(ka) || !seen.has(kb) || ka === kb){ unresolved++; return; }
+      const pk = ka+'\u0000'+kb+'\u0000'+l.op;
+      if(pairSeen.has(pk)) return;
+      pairSeen.add(pk);
+      res.links.push({a:seen.get(ka), b:seen.get(kb), op:l.op, flowLabel:l.flowLabel, ctx:l.ctx});
+    });
+    if(unresolved) res.stats.unresolved = unresolved;
+
+    res.preserved = res.preserved.filter(p=>{
+      if(p.kind !== 'evolve') return true;
+      const n = res.nodes.find(n=>n.name.toLowerCase() === p.name.toLowerCase());
+      if(!n) return true;
+      n.evolve = {to:p.to, newName:p.newName, label:p.label, decorators:p.decorators, extra:p.extra};
+      return false;
+    });
+    return res;
+  }
+
+  function generateDSL(){
+    const out = [];
+    const live = new Set(nodes.map(n=>n.name.toLowerCase()));
+    out.push(`title ${title || 'Untitled Map'}`, '');
+    nodes.forEach(n=>{
+      out.push(`${n.kind} ${n.name} [${(1-n.y).toFixed(2)}, ${n.x.toFixed(2)}]${serializeTrailing(n)}`);
+      if(n.evolve){
+        const nm = n.evolve.newName ? `${n.name}->${n.evolve.newName}` : n.name;
+        out.push(`evolve ${nm} ${n.evolve.to}${serializeTrailing(n.evolve)}`);
+      }
+    });
+    if(notes.length){
+      out.push('');
+      notes.forEach(nt=> out.push(`note ${nt.text} [${(1-nt.y).toFixed(2)}, ${nt.x.toFixed(2)}]`));
+    }
+    if(links.length){
+      out.push('');
+      links.forEach(l=>{
+        const a = nodes.find(n=>n.id===l.a), b = nodes.find(n=>n.id===l.b);
+        if(!a || !b) return;
+        let op = l.op === "+'>" ? `+'${l.flowLabel||''}'>` : l.op;
+        out.push(`${a.name}${op}${b.name}${l.ctx ? '; '+l.ctx : ''}`);
+      });
+    }
+    const keep = preserved.filter(p => p.kind === 'raw' || live.has(String(p.name||'').toLowerCase()));
+    if(keep.length){
+      out.push('');
+      keep.forEach(p=>{
+        if(p.kind === 'raw') out.push(p.raw);
+        else if(p.kind === 'pipelineBlock') out.push(`pipeline ${p.name} {`, p.body, '}');
+        else if(p.kind === 'pipeline') out.push(`pipeline ${p.name}${p.rest?' '+p.rest:''}`);
+        else if(p.kind === 'evolve'){
+          const nm = p.newName ? `${p.name}->${p.newName}` : p.name;
+          out.push(`evolve ${nm} ${p.to}${serializeTrailing(p)}`);
+        }
+      });
+    }
+    return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+  }
+
+  // ---------- Rendering ----------
+  function nodeGlyph(n, cx, cy, sel){
+    const A = 'var(--accent)', BG = 'var(--bg)';
+    if(n.kind === 'anchor')
+      return `<rect x="${cx-12}" y="${cy-12}" width="24" height="24" rx="5" fill="${A}" stroke="${BG}" stroke-width="2.5"/>`;
+    if(n.kind === 'submap')
+      return `<rect x="${cx-12}" y="${cy-12}" width="24" height="24" rx="5" fill="${BG}" stroke="${A}" stroke-width="3"/>`;
+    if(n.kind === 'market')
+      return `<circle cx="${cx}" cy="${cy}" r="13" fill="${BG}" stroke="${A}" stroke-width="3"/>
+              <circle cx="${cx}" cy="${cy}" r="4.5" fill="${A}"/>`;
+    if(n.kind === 'ecosystem')
+      return `<circle cx="${cx}" cy="${cy}" r="13" fill="${BG}" stroke="${A}" stroke-width="3" stroke-dasharray="4 3"/>`;
+    return `<circle cx="${cx}" cy="${cy}" r="13" fill="${A}" stroke="${BG}" stroke-width="2.5"/>`;
+  }
+
+  function renderCanvas(){
+    // --- links ---
+    let s = '';
+    links.forEach(l=>{
+      const a = nodes.find(n=>n.id===l.a), b = nodes.find(n=>n.id===l.b);
+      if(!a||!b) return;
+      const x1=a.x*1000, y1=a.y*1000, x2=b.x*1000, y2=b.y*1000;
+      const dash = (l.op === '-.->') ? ' stroke-dasharray="7 6"' : '';
+      const flow = l.op.charAt(0) === '+';
+      const w = flow ? 3.5 : 2.5;
+      let mk = ' marker-end="url(#arrow)"';
+      if(l.op === '+<') mk = ' marker-start="url(#arrowBack)"';
+      else if(l.op === '+<>') mk = ' marker-end="url(#arrow)" marker-start="url(#arrowBack)"';
+      s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--accent-2)" stroke-width="${w}"${dash}${mk} opacity="${flow?0.95:0.8}"/>`;
+      const label = l.flowLabel || null;
+      if(label || l.ctx){
+        const mx=(x1+x2)/2, my=(y1+y2)/2;
+        if(label) s += `<text x="${mx}" y="${my-6}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="var(--accent-2)">${esc(label)}</text>`;
+        if(l.ctx) s += `<text x="${mx}" y="${my+(label?12:6)}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--ink-faint)">${esc(l.ctx)}</text>`;
+      }
+    });
+    edgesLayer.innerHTML = s;
+
+    // --- evolve ghosts ---
+    let e = '';
+    nodes.forEach(n=>{
+      if(!n.evolve) return;
+      const x1=n.x*1000, y=n.y*1000, x2=clamp(n.evolve.to)*1000;
+      e += `<line x1="${x1+15}" y1="${y}" x2="${x2-15}" y2="${y}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#ghostArrow)" opacity="0.75"/>`;
+      e += `<circle cx="${x2}" cy="${y}" r="12" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.9"/>`;
+      if(n.evolve.newName)
+        e += `<text x="${x2}" y="${y+30}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="var(--accent)" opacity="0.9">${esc(n.evolve.newName)}</text>`;
+    });
+    evolveLayer.innerHTML = e;
+
+    // --- nodes ---
+    let g = '';
+    nodes.forEach(n=>{
+      const cx=n.x*1000, cy=n.y*1000;
+      const sel = (selectedKind==='node' && n.id===selectedId);
+      const isFrom = n.id===linkFromId;
+      let guides = '';
+      if(sel || isFrom){
+        guides = `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="1000" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 6"/>
+                  <line x1="${cx}" y1="${cy}" x2="0" y2="${cy}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 6"/>`;
+      }
+      const ring = (sel||isFrom)
+        ? `<circle cx="${cx}" cy="${cy}" r="22" fill="none" stroke="${isFrom?'var(--accent-2)':'var(--accent)'}" stroke-width="2"/>` : '';
+      const inertia = n.inertia
+        ? `<line x1="${cx+20}" y1="${cy-15}" x2="${cx+20}" y2="${cy+15}" stroke="var(--ink)" stroke-width="4" stroke-linecap="round" opacity="0.85"/>` : '';
+      const lx = n.label ? cx + n.label.x : (cx < 820 ? cx+20 : cx-20);
+      const ly = n.label ? cy - n.label.y : cy+4.5;
+      const anchor = n.label ? 'middle' : (cx < 820 ? 'start' : 'end');
+      const dec = (n.decorators && n.decorators.length)
+        ? `<text x="${cx}" y="${cy-24}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--ink-faint)">${esc(n.decorators.join(' '))}</text>` : '';
+      g += `<g data-id="${n.id}" data-kind="node" style="cursor:pointer;">
+        ${guides}${ring}${inertia}
+        ${nodeGlyph(n, cx, cy, sel)}
+        ${dec}
+        <text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="JetBrains Mono, monospace" font-size="14" fill="var(--ink)">${esc(n.name)}</text>
+      </g>`;
+    });
+    nodesLayer.innerHTML = g;
+
+    // --- notes ---
+    let nt = '';
+    notes.forEach(o=>{
+      const cx=o.x*1000, cy=o.y*1000;
+      const sel = (selectedKind==='note' && o.id===selectedId);
+      const box = sel ? `<rect x="${cx-6}" y="${cy-16}" width="12" height="22" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>` : '';
+      nt += `<g data-id="${o.id}" data-kind="note" style="cursor:pointer;">
+        ${box}
+        <text x="${cx}" y="${cy}" font-family="Space Grotesk, sans-serif" font-style="italic" font-size="15" fill="${sel?'var(--accent)':'var(--ink-dim)'}">${esc(o.text)}</text>
+      </g>`;
+    });
+    notesLayer.innerHTML = nt;
+
+    hint.style.display = (nodes.length || notes.length) ? 'none' : 'block';
+    const carriedCount = preserved.length;
+    carriedEl.classList.toggle('show', carriedCount > 0);
+    if(carriedCount) carriedEl.textContent = carriedCount + ' carried through';
+  }
+
+  function renderBanner(){
+    if(linkFromId){
+      const f = nodes.find(n=>n.id===linkFromId);
+      linkBannerText.textContent = `Linking from "${f?f.name:''}" — tap another component`;
+      linkBanner.hidden = false;
+    } else linkBanner.hidden = true;
+  }
+
+  function renderSheet(){
+    const total = nodes.length + notes.length;
+    sheetCount.textContent = total + (total===1 ? ' element' : ' elements');
+    if(total === 0){
+      sheetList.innerHTML = '<div class="empty-row">Nothing yet — hold the board to add something.</div>';
+      return;
+    }
+    let s = '';
+    nodes.forEach(n=>{
+      const sel = (selectedKind==='node' && n.id===selectedId);
+      const linkOn = n.id===linkFromId ? ' link-on' : '';
+      s += `<div class="row${sel?' selected':''}" data-row-id="${n.id}" data-row-kind="node">
+        <span class="row-dot ${n.kind}"></span>
+        <input class="row-name" data-name-id="${n.id}" value="${esc(n.name)}" maxlength="40">
+        <span class="row-meta">v${(1-n.y).toFixed(2)}&nbsp;e${n.x.toFixed(2)}</span>
+        <button class="row-btn${linkOn}" data-action="link" data-id="${n.id}" title="Link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 017 7h2"/><path d="M15 7h2a5 5 0 010 10h-2"/><path d="M8 12h8"/></svg>
+        </button>
+        <button class="row-btn del" data-action="delete" data-id="${n.id}" data-kind="node" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>
+        </button>
+      </div>`;
+      if(sel) s += detailHTML(n);
+    });
+    notes.forEach(o=>{
+      const sel = (selectedKind==='note' && o.id===selectedId);
+      s += `<div class="row${sel?' selected':''}" data-row-id="${o.id}" data-row-kind="note" style="${sel?'border-radius:10px;margin-bottom:6px;':''}">
+        <span class="row-dot note"></span>
+        <input class="row-name" data-note-id="${o.id}" value="${esc(o.text)}" maxlength="80" style="font-style:italic;">
+        <span class="row-meta">note</span>
+        <button class="row-btn del" data-action="delete" data-id="${o.id}" data-kind="note" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>
+        </button>
+      </div>`;
+    });
+    sheetList.innerHTML = s;
+  }
+
+  function detailHTML(n){
+    const kinds = NODE_KINDS.map(k=>
+      `<button class="chip${n.kind===k?' on':''}" data-detail="kind" data-val="${k}" data-id="${n.id}">${k.slice(0,4)}</button>`).join('');
+    const ev = n.evolve;
+    return `<div class="detail">
+      <div class="detail-row"><span class="detail-label">Type</span>${kinds}</div>
+      <div class="detail-row">
+        <span class="detail-label">Flags</span>
+        <button class="chip${n.inertia?' on':''}" data-detail="inertia" data-id="${n.id}">Inertia</button>
+        <button class="chip${ev?' on':''}" data-detail="evolve" data-id="${n.id}">Evolve</button>
+      </div>
+      ${ev ? `<div class="detail-row">
+        <span class="detail-label">Target</span>
+        <input type="range" min="0.03" max="0.97" step="0.01" value="${ev.to}" data-detail="evolveTo" data-id="${n.id}">
+        <span class="evo-val">${Number(ev.to).toFixed(2)}</span>
+      </div>` : ''}
+    </div>`;
+  }
+
+  function renderAll(){ renderCanvas(); renderBanner(); renderSheet(); }
+
+  // ---------- Persistence ----------
+  const STORAGE_KEY = 'wardley-sketch:map:v2';
+  let storageOK = (function(){
+    try{ localStorage.setItem('__ws__','1'); localStorage.removeItem('__ws__'); return true; }
+    catch(e){ return false; }
+  })();
+  let saveTimer = null;
+
+  function setSaveStatus(state){
+    if(state === 'off'){ saveStatus.textContent='not saved'; saveStatus.className='save-status off'; return; }
+    saveStatus.textContent='saved'; saveStatus.className='save-status show';
+    clearTimeout(setSaveStatus._t);
+    setSaveStatus._t = setTimeout(()=>{ saveStatus.className='save-status'; }, 1400);
+  }
+  function saveNow(){
+    if(!storageOK) return;
+    clearTimeout(saveTimer); saveTimer = null;
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({v:2, title, nodes, links, notes, preserved, nextId}));
+      setSaveStatus('saved');
+    }catch(e){ storageOK = false; setSaveStatus('off'); }
+  }
+  function scheduleSave(){
+    if(!storageOK) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 350);
+  }
+  function loadSaved(){
+    if(!storageOK) return false;
+    let d;
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return false;
+      d = JSON.parse(raw);
+    }catch(e){ return false; }
+    if(!d || !Array.isArray(d.nodes)) return false;
+    const num = (v,fb)=> (typeof v==='number' && isFinite(v)) ? v : fb;
+
+    nodes = d.nodes.filter(n=>n && n.id!=null).map(n=>({
+      id:num(n.id,0),
+      name:String(n.name==null?'Component':n.name).slice(0,40) || 'Component',
+      kind: NODE_KINDS.includes(n.kind) ? n.kind : 'component',
+      x:clamp(num(n.x,0.5)), y:clamp(num(n.y,0.5)),
+      inertia: !!n.inertia,
+      label: (n.label && isFinite(n.label.x) && isFinite(n.label.y)) ? {x:n.label.x,y:n.label.y} : null,
+      decorators: Array.isArray(n.decorators) ? n.decorators.slice(0,4) : [],
+      url: typeof n.url==='string' ? n.url : null,
+      extra: typeof n.extra==='string' ? n.extra : '',
+      evolve: (n.evolve && isFinite(n.evolve.to))
+        ? {to:clamp(num(n.evolve.to,0.7)), newName:n.evolve.newName||null,
+           label:n.evolve.label||null, decorators:n.evolve.decorators||[], extra:n.evolve.extra||''}
+        : null
+    }));
+    const ids = new Set(nodes.map(n=>n.id));
+    links = (Array.isArray(d.links)?d.links:[])
+      .filter(l=>l && ids.has(l.a) && ids.has(l.b) && l.a!==l.b)
+      .map(l=>({id:num(l.id,0), a:l.a, b:l.b, op:typeof l.op==='string'?l.op:'->',
+                flowLabel:l.flowLabel||null, ctx:l.ctx||null}));
+    notes = (Array.isArray(d.notes)?d.notes:[])
+      .filter(o=>o && o.id!=null)
+      .map(o=>({id:num(o.id,0), text:String(o.text||'note').slice(0,80),
+                x:clamp(num(o.x,0.5)), y:clamp(num(o.y,0.5))}));
+    preserved = Array.isArray(d.preserved) ? d.preserved.filter(p=>p && typeof p==='object') : [];
+    title = (typeof d.title==='string' && d.title.trim()) ? d.title.trim().slice(0,60) : 'Untitled Map';
+    titleInput.value = title;
+    const maxId = Math.max(0, ...nodes.map(n=>n.id), ...links.map(l=>l.id), ...notes.map(o=>o.id));
+    nextId = Math.max(num(d.nextId,1), maxId+1);
+    return (nodes.length + notes.length) > 0;
+  }
+  window.addEventListener('pagehide', ()=>{ if(saveTimer) saveNow(); });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='hidden' && saveTimer) saveNow();
+  });
+
+  // ---------- Mutations ----------
+  function addNode(name, x, y){
+    const n = {id:nextId++, name:name||('Component '+(nodes.length+1)), kind:'component',
+               x, y, inertia:false, label:null, decorators:[], url:null, extra:'', evolve:null};
+    nodes.push(n);
+    selectedId = n.id; selectedKind = 'node';
+    renderAll(); scheduleSave(); expandTo(n.id);
+  }
+  function addNote(text, x, y){
+    const o = {id:nextId++, text:text||'Note', x, y};
+    notes.push(o);
+    selectedId = o.id; selectedKind = 'note';
+    renderAll(); scheduleSave(); expandTo(o.id);
+  }
+  function expandTo(id){
+    sheet.classList.add('expanded');
+    requestAnimationFrame(()=>{
+      const row = sheetList.querySelector(`[data-row-id="${id}"]`);
+      if(row) row.scrollIntoView({block:'nearest'});
+    });
+  }
+  function deleteEl(id, kind){
+    if(kind === 'note'){ notes = notes.filter(o=>o.id!==id); }
+    else{
+      const gone = nodes.find(n=>n.id===id);
+      nodes = nodes.filter(n=>n.id!==id);
+      links = links.filter(l=>l.a!==id && l.b!==id);
+      // preserved statements about a deleted node are dropped on export
+      if(gone) preserved = preserved.filter(p =>
+        p.kind==='raw' || String(p.name||'').toLowerCase() !== gone.name.toLowerCase());
+      if(linkFromId===id) linkFromId=null;
+    }
+    if(selectedId===id) { selectedId=null; selectedKind=null; }
+    renderAll(); scheduleSave();
+  }
+  function renameNode(id, val){
+    const n = nodes.find(n=>n.id===id);
+    if(!n) return;
+    const next = val.trim().slice(0,40);
+    if(!next || next === n.name) return;
+    const old = n.name.toLowerCase();
+    // keep preserved statements pointing at the right component
+    preserved.forEach(p=>{ if(p.kind!=='raw' && String(p.name||'').toLowerCase()===old) p.name = next; });
+    n.name = next;
+    renderAll(); scheduleSave();
+  }
+  function renameNote(id, val){
+    const o = notes.find(o=>o.id===id);
+    if(o) o.text = val.trim().slice(0,80) || o.text;
+    renderAll(); scheduleSave();
+  }
+  function addLink(a,b){
+    if(a===b) return;
+    if(links.some(l=>l.a===a && l.b===b)) return;
+    links.push({id:nextId++, a, b, op:'->', flowLabel:null, ctx:null});
+    scheduleSave();
+  }
+  function selectEl(id, kind){
+    selectedId = id; selectedKind = kind;
+    renderAll(); expandTo(id);
+  }
+
+  // ---------- Long-press indicator ----------
+  function startPressIndicator(x,y){
+    stopPressIndicator();
+    const el = document.createElement('div');
+    el.className = 'press-indicator';
+    el.style.left = x+'px'; el.style.top = y+'px';
+    document.body.appendChild(el);
+    pressIndicator = el;
+    requestAnimationFrame(()=> requestAnimationFrame(()=> el.classList.add('active')));
+  }
+  function stopPressIndicator(){ if(pressIndicator){ pressIndicator.remove(); pressIndicator=null; } }
+  function popPressIndicator(){
+    if(pressIndicator){
+      pressIndicator.classList.add('pop');
+      const el = pressIndicator;
+      setTimeout(()=> el.remove(), 180);
+      pressIndicator = null;
+    }
+  }
+
+  // ---------- Add popup ----------
+  function openAddPopup(clientX, clientY, frac){
+    closeAddPopup();
+    pendingAddFrac = frac;
+    const pop = document.createElement('div');
+    pop.className='add-popup'; pop.id='addPopup';
+    pop.innerHTML = `
+      <div class="seg">
+        <button id="segCmp" class="${addType==='component'?'on':''}">Cmp</button>
+        <button id="segNote" class="${addType==='note'?'on':''}">Note</button>
+      </div>
+      <input id="addNameInput" placeholder="Name" maxlength="60">
+      <button class="pop-add" id="popAddBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="pop-cancel" id="popCancelBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+    document.body.appendChild(pop);
+    const vw=window.innerWidth, vh=window.innerHeight, pw=300, ph=52;
+    pop.style.left = Math.min(vw-pw-8, Math.max(8, clientX-pw/2))+'px';
+    pop.style.top  = Math.min(vh-ph-8, Math.max(8, clientY-ph-14))+'px';
+
+    const input = document.getElementById('addNameInput');
+    input.focus();
+    document.getElementById('segCmp').addEventListener('click', ()=>{
+      addType='component';
+      document.getElementById('segCmp').classList.add('on');
+      document.getElementById('segNote').classList.remove('on');
+      input.focus();
+    });
+    document.getElementById('segNote').addEventListener('click', ()=>{
+      addType='note';
+      document.getElementById('segNote').classList.add('on');
+      document.getElementById('segCmp').classList.remove('on');
+      input.focus();
+    });
+    document.getElementById('popAddBtn').addEventListener('click', commitAdd);
+    document.getElementById('popCancelBtn').addEventListener('click', closeAddPopup);
+    input.addEventListener('keydown', e=>{
+      if(e.key==='Enter') commitAdd();
+      if(e.key==='Escape') closeAddPopup();
+    });
+  }
+  function commitAdd(){
+    const input = document.getElementById('addNameInput');
+    const name = input ? input.value.trim() : '';
+    if(pendingAddFrac){
+      if(addType==='note') addNote(name || 'Note', pendingAddFrac.x, pendingAddFrac.y);
+      else addNode(name, pendingAddFrac.x, pendingAddFrac.y);
+    }
+    closeAddPopup();
+  }
+  function closeAddPopup(){
+    const pop = document.getElementById('addPopup');
+    if(pop) pop.remove();
+    pendingAddFrac = null;
+  }
+
+  // ---------- Pointer ----------
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+  function cancelSingleGesture(){
+    clearTimeout(longPressTimer); stopPressIndicator();
+    dragId=null; dragKind=null; pointerStart=null; dragMoved=false; longPressFired=false; panLast=null;
+  }
+
+  board.addEventListener('pointerdown', (e)=>{
+    board.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size >= 2){
+      cancelSingleGesture(); closeAddPopup(); multiTouchOccurred = true;
+      const p = Array.from(pointers.values());
+      pinchDist = dist(p[0], p[1]);
+      return;
+    }
+    closeAddPopup();
+    const el = e.target.closest('[data-id]');
+    pointerStart = {x:e.clientX, y:e.clientY};
+    panLast = {x:e.clientX, y:e.clientY};
+    dragMoved=false; longPressFired=false;
+    dragId = el ? Number(el.dataset.id) : null;
+    dragKind = el ? el.dataset.kind : null;
+    if(dragId !== null) return;
+    if(!linkFromId && selectedId===null){
+      const cx=e.clientX, cy=e.clientY;
+      startPressIndicator(cx, cy);
+      longPressTimer = setTimeout(()=>{
+        if(dragMoved) return;
+        longPressFired = true;
+        popPressIndicator();
+        openAddPopup(cx, cy, clientToFrac(cx, cy));
+      }, LONG_PRESS_MS);
+    }
+  });
+
+  board.addEventListener('pointermove', (e)=>{
+    if(!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size >= 2){
+      const p = Array.from(pointers.values());
+      const nd = dist(p[0],p[1]);
+      if(pinchDist){
+        const tz = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel*(nd/pinchDist)));
+        const m = mid(p[0],p[1]);
+        const r = board.getBoundingClientRect();
+        const rx=(m.x-r.left)/r.width, ry=(m.y-r.top)/r.height;
+        const ax=vb.x+rx*vb.w, ay=vb.y+ry*vb.h, ns=1000/tz;
+        vb={x:ax-rx*ns, y:ay-ry*ns, w:ns, h:ns};
+        clampVb(); zoomLevel=tz; applyViewBox();
+      }
+      pinchDist = nd;
+      return;
+    }
+    if(!pointerStart) return;
+    const dx=e.clientX-pointerStart.x, dy=e.clientY-pointerStart.y;
+    if(!dragMoved && (Math.abs(dx)>6 || Math.abs(dy)>6)){
+      dragMoved=true; clearTimeout(longPressTimer); stopPressIndicator();
+    }
+    if(dragId !== null && dragMoved){
+      const f = clientToFrac(e.clientX, e.clientY);
+      const coll = dragKind==='note' ? notes : nodes;
+      const o = coll.find(o=>o.id===dragId);
+      if(o){ o.x=f.x; o.y=f.y; renderCanvas(); }
+      return;
+    }
+    if(dragId === null && dragMoved && zoomLevel > 1.02 && panLast){
+      const r = board.getBoundingClientRect();
+      vb.x -= ((e.clientX-panLast.x)/r.width)*vb.w;
+      vb.y -= ((e.clientY-panLast.y)/r.height)*vb.h;
+      clampVb(); applyViewBox();
+      panLast = {x:e.clientX, y:e.clientY};
+    }
+  });
+
+  function endPointer(e){
+    pointers.delete(e.pointerId);
+    if(pointers.size === 1){
+      const rem = Array.from(pointers.values())[0];
+      pointerStart={x:rem.x,y:rem.y}; panLast={x:rem.x,y:rem.y};
+      dragMoved=true; dragId=null; dragKind=null; pinchDist=null;
+      return;
+    }
+    if(pointers.size === 0){
+      clearTimeout(longPressTimer);
+      if(dragId !== null){
+        if(!dragMoved) handleElTap(dragId, dragKind);
+        else { renderSheet(); scheduleSave(); }
+      } else if(!dragMoved && !longPressFired && !multiTouchOccurred){
+        handleCanvasTap();
+      }
+      stopPressIndicator();
+      dragId=null; dragKind=null; pointerStart=null; dragMoved=false;
+      longPressFired=false; panLast=null; pinchDist=null; multiTouchOccurred=false;
+    }
+  }
+  board.addEventListener('pointerup', endPointer);
+  board.addEventListener('pointercancel', endPointer);
+
+  function handleElTap(id, kind){
+    if(linkFromId && kind==='node'){
+      if(id !== linkFromId) addLink(linkFromId, id);
+      linkFromId = null; renderAll(); return;
+    }
+    selectEl(id, kind);
+  }
+  function handleCanvasTap(){
+    if(linkFromId){ linkFromId=null; renderAll(); return; }
+    if(selectedId!==null){ selectedId=null; selectedKind=null; renderAll(); return; }
+  }
+  document.getElementById('linkCancelBtn').addEventListener('click', ()=>{ linkFromId=null; renderAll(); });
+
+  // ---------- Sheet ----------
+  sheetHandle.addEventListener('click', ()=> sheet.classList.toggle('expanded'));
+
+  sheetList.addEventListener('click', (e)=>{
+    const det = e.target.closest('[data-detail]');
+    if(det){
+      const id = Number(det.dataset.id);
+      const n = nodes.find(n=>n.id===id);
+      if(!n) return;
+      const what = det.dataset.detail;
+      if(what==='kind'){ n.kind = det.dataset.val; }
+      else if(what==='inertia'){ n.inertia = !n.inertia; }
+      else if(what==='evolve'){
+        n.evolve = n.evolve ? null
+          : {to: Math.min(0.97, Math.max(n.x+0.15, 0.2)), newName:null, label:null, decorators:[], extra:''};
+      }
+      renderAll(); scheduleSave();
+      return;
+    }
+    const btn = e.target.closest('[data-action]');
+    if(btn){
+      const id = Number(btn.dataset.id);
+      if(btn.dataset.action === 'delete') deleteEl(id, btn.dataset.kind);
+      if(btn.dataset.action === 'link'){
+        linkFromId = (linkFromId===id) ? null : id;
+        renderAll();
+        if(linkFromId) sheet.classList.remove('expanded');
+      }
+      return;
+    }
+    const row = e.target.closest('[data-row-id]');
+    if(row && !e.target.matches('.row-name')){
+      selectEl(Number(row.dataset.rowId), row.dataset.rowKind);
+    }
+  });
+
+  sheetList.addEventListener('input', (e)=>{
+    const rng = e.target.closest('[data-detail="evolveTo"]');
+    if(rng){
+      const n = nodes.find(n=>n.id===Number(rng.dataset.id));
+      if(n && n.evolve){
+        n.evolve.to = parseFloat(rng.value);
+        const val = rng.parentElement.querySelector('.evo-val');
+        if(val) val.textContent = Number(n.evolve.to).toFixed(2);
+        renderCanvas(); scheduleSave();
+      }
+    }
+  });
+  sheetList.addEventListener('change', (e)=>{
+    if(e.target.matches('.row-name')){
+      if(e.target.dataset.nameId) renameNode(Number(e.target.dataset.nameId), e.target.value);
+      else if(e.target.dataset.noteId) renameNote(Number(e.target.dataset.noteId), e.target.value);
+    }
+  });
+  sheetList.addEventListener('keydown', (e)=>{
+    if(e.target.matches('.row-name') && e.key==='Enter') e.target.blur();
+  });
+
+  titleInput.addEventListener('change', ()=>{
+    title = titleInput.value.trim() || 'Untitled Map';
+    scheduleSave();
+  });
+  titleInput.addEventListener('keydown', e=>{ if(e.key==='Enter') titleInput.blur(); });
+
+  // ---------- Export ----------
+  const exportOverlay = document.getElementById('exportOverlay');
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    if(nodes.length===0 && notes.length===0){ showToast('Add something first'); return; }
+    document.getElementById('dslOut').value = generateDSL();
+    exportOverlay.hidden = false;
+  });
+  document.getElementById('exportCloseBtn').addEventListener('click', ()=> exportOverlay.hidden = true);
+  document.getElementById('copyBtn').addEventListener('click', ()=>{
+    const ta = document.getElementById('dslOut');
+    ta.select();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(()=> showToast('Copied to clipboard'))
+        .catch(()=>{ document.execCommand('copy'); showToast('Copied to clipboard'); });
+    } else { document.execCommand('copy'); showToast('Copied to clipboard'); }
+  });
+
+  function mapFilename(){
+    const slug = String(title||'wardley-map')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // strip accents, keep letters
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40);
+    return (slug || 'wardley-map') + '.owm';
+  }
+
+  async function saveMapFile(){
+    const text = generateDSL();
+    const filename = mapFilename();
+    const blob = new Blob([text], {type:'text/plain'});
+
+    // Prefer the OS share sheet on mobile — on iOS the download
+    // attribute is unreliable, and sharing lets the user drop the
+    // file straight into Files, Mail, or another app.
+    try{
+      if(navigator.canShare && navigator.share && typeof File === 'function'){
+        const file = new File([blob], filename, {type:'text/plain'});
+        if(navigator.canShare({files:[file]})){
+          await navigator.share({files:[file], title: title || 'Wardley map'});
+          return;
+        }
+      }
+    }catch(err){
+      // User dismissing the share sheet is not a failure.
+      if(err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+    }
+
+    try{
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+      showToast('Saved ' + filename);
+    }catch(err){
+      showToast("Couldn't save a file — use Copy instead");
+    }
+  }
+  document.getElementById('saveFileBtn').addEventListener('click', saveMapFile);
+
+  // ---------- Import ----------
+  const importOverlay = document.getElementById('importOverlay');
+  const dslIn = document.getElementById('dslIn');
+  const importWarn = document.getElementById('importWarn');
+
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    importWarn.hidden = true; importOverlay.hidden = false;
+    setTimeout(()=> dslIn.focus(), 50);
+  });
+  document.getElementById('importCloseBtn').addEventListener('click', ()=> importOverlay.hidden = true);
+  document.getElementById('dslFile').addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ()=>{ dslIn.value = String(rd.result||''); };
+    rd.onerror = ()=> showToast("Couldn't read that file");
+    rd.readAsText(f);
+    e.target.value='';
+  });
+
+  function applyImport(p){
+    const byName = new Map();
+    nodes = p.nodes.map(n=>{
+      const o = Object.assign({}, n, {id: nextId++});
+      byName.set(n.name.toLowerCase(), o.id);
+      return o;
+    });
+    links = p.links.map(l=>({
+      id: nextId++, a: byName.get(l.a.toLowerCase()), b: byName.get(l.b.toLowerCase()),
+      op: l.op, flowLabel: l.flowLabel, ctx: l.ctx
+    })).filter(l=> l.a != null && l.b != null);
+    notes = p.notes.map(o=> Object.assign({}, o, {id: nextId++}));
+    preserved = p.preserved;
+    title = p.title || 'Untitled Map';
+    titleInput.value = title;
+    selectedId=null; selectedKind=null; linkFromId=null;
+    resetZoom(); renderAll(); saveNow();
+  }
+
+  document.getElementById('importGoBtn').addEventListener('click', ()=>{
+    const text = dslIn.value;
+    if(!text.trim()){ showToast('Paste some DSL first'); return; }
+    const p = parseDSL(text);
+    if(p.nodes.length === 0 && p.notes.length === 0){
+      importWarn.hidden = false;
+      importWarn.textContent = 'No components found. Expected lines like: component Name [0.8, 0.4]';
+      return;
+    }
+    applyImport(p);
+    importOverlay.hidden = true; dslIn.value='';
+    const bits = [p.nodes.length + ' component' + (p.nodes.length===1?'':'s')];
+    if(p.links.length) bits.push(p.links.length + ' link' + (p.links.length===1?'':'s'));
+    if(p.notes.length) bits.push(p.notes.length + ' note' + (p.notes.length===1?'':'s'));
+    showToast('Imported ' + bits.join(', '));
+    const extras = [];
+    if(p.preserved.length) extras.push(p.preserved.length + ' statement' + (p.preserved.length===1?'':'s') + ' carried through');
+    if(p.stats.unresolved) extras.push(p.stats.unresolved + " link(s) couldn't be resolved");
+    if(p.stats.dupes) extras.push(p.stats.dupes + ' duplicate name(s) dropped');
+    if(extras.length) setTimeout(()=> showToast(extras.join(' · ')), 2200);
+  });
+
+  // ---------- Clear ----------
+  const clearOverlay = document.getElementById('clearOverlay');
+  document.getElementById('clearBtn').addEventListener('click', ()=>{
+    if(nodes.length===0 && notes.length===0 && preserved.length===0){ showToast('Nothing to clear'); return; }
+    clearOverlay.hidden = false;
+  });
+  document.getElementById('clearCancelBtn').addEventListener('click', ()=> clearOverlay.hidden = true);
+  document.getElementById('clearConfirmBtn').addEventListener('click', ()=>{
+    nodes=[]; links=[]; notes=[]; preserved=[];
+    selectedId=null; selectedKind=null; linkFromId=null;
+    renderAll(); saveNow();
+    clearOverlay.hidden = true;
+    showToast('Map cleared');
+  });
+
+  // ---------- Init ----------
+  applyViewBox();
+  const restored = loadSaved();
+  renderAll();
+  if(!storageOK){
+    setSaveStatus('off');
+    setTimeout(()=> showToast("Storage blocked here — changes won't persist"), 700);
+  } else if(restored){
+    setTimeout(()=> showToast('Map restored'), 400);
+  }
+})();
+
+// Service worker — only works over http(s), so this is a no-op
+// when the file is opened directly from disk.
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
