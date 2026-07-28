@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Wardley">
@@ -14,24 +14,27 @@
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-<title>Wardley Sketch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root{
   --bg:#1c1f1d; --panel:#23262a; --panel-2:#2b2f31; --panel-3:#32363a;
-  --ink:#edeae0; --ink-dim:#8f8d82; --ink-faint:#605e56;
-  --accent:#e8a33d; --accent-dim:#7a5a28; --accent-2:#4fa8a0; --danger:#c1554b;
+  --ink:#edeae0; --ink-dim:#8f8d82; --ink-faint:#8b897e;
+  --accent:#e8a33d; --accent-dim:#7a5a28; --accent-2:#4fa8a0; --danger:#d16b60;
   --line: rgba(237,234,224,0.09); --zone-line: rgba(237,234,224,0.20);
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
 body{
   margin:0; background:var(--bg); color:var(--ink);
-  font-family:'Space Grotesk',sans-serif;
+  font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   height:100dvh; height:var(--app-h, 100dvh);
   display:flex; flex-direction:column; overflow:hidden;
-  touch-action:none; padding-top:env(safe-area-inset-top);
+  /* The board handles its own pinch; everything else stays
+     browser-zoomable so low-vision users can magnify the UI. */
+  touch-action:manipulation; padding-top:env(safe-area-inset-top);
 }
 
 header{
@@ -40,7 +43,7 @@ header{
 }
 .title-wrap{display:flex; flex-direction:column; min-width:0; flex:1;}
 .eyebrow{
-  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.14em;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:10px; letter-spacing:.14em;
   color:var(--accent); text-transform:uppercase; margin-bottom:2px;
 }
 .save-status{color:var(--ink-faint); opacity:0; transition:opacity .3s ease;}
@@ -49,7 +52,7 @@ header{
 .save-status.off{opacity:1; color:var(--danger);}
 #titleInput{
   background:transparent; border:none; outline:none; color:var(--ink);
-  font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:600;
+  font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size:19px; font-weight:600;
   padding:0; width:100%; min-width:0;
 }
 .header-btns{display:flex; gap:4px; flex:0 0 auto;}
@@ -72,7 +75,7 @@ header{
   justify-content:space-between; padding:6px 0 30px 2px;
 }
 .y-axis span{
-  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.12em;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:9px; letter-spacing:.12em;
   color:var(--ink-faint); writing-mode:vertical-rl; transform:rotate(180deg);
 }
 .canvas-col{flex:1; min-width:0; display:flex; flex-direction:column; position:relative;}
@@ -83,7 +86,7 @@ header{
 svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .zone-labels{display:flex; margin-top:6px; padding:0 1px;}
 .zone-labels span{
-  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.08em;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:9px; letter-spacing:.08em;
   color:var(--ink-faint); text-align:center; text-transform:uppercase;
 }
 .hint{
@@ -110,7 +113,7 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .zoom-reset{
   position:absolute; bottom:10px; right:10px; z-index:6;
   background:var(--panel-3); border:1px solid rgba(237,234,224,.14);
-  color:var(--ink-dim); font-family:'JetBrains Mono',monospace;
+  color:var(--ink-dim); font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size:11px; font-weight:500; letter-spacing:.04em;
   padding:7px 11px; border-radius:20px; display:none; align-items:center; gap:6px;
 }
@@ -120,7 +123,7 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .carried{
   position:absolute; bottom:10px; left:10px; z-index:6;
   background:var(--panel-3); border:1px solid rgba(237,234,224,.14);
-  color:var(--ink-faint); font-family:'JetBrains Mono',monospace;
+  color:var(--ink-faint); font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size:10px; letter-spacing:.03em; padding:6px 10px; border-radius:20px;
   display:none;
 }
@@ -133,8 +136,8 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 }
 .add-popup input{
   background:var(--panel-3); border:1px solid transparent; border-radius:8px;
-  color:var(--ink); font-family:'Space Grotesk',sans-serif; font-size:14px;
-  padding:8px 10px; outline:none; width:118px;
+  color:var(--ink); font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size:16px;
+  padding:8px 10px; outline:none; width:112px;
 }
 .add-popup input:focus{border-color:var(--accent);}
 .add-popup button{
@@ -147,7 +150,7 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .seg{display:flex; background:var(--panel-3); border-radius:8px; overflow:hidden; flex:0 0 auto;}
 .seg button{
   width:auto; padding:0 9px; height:34px; border-radius:0; background:transparent;
-  color:var(--ink-faint); font-family:'JetBrains Mono',monospace; font-size:10px;
+  color:var(--ink-faint); font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:10px;
   letter-spacing:.06em; text-transform:uppercase;
 }
 .seg button.on{background:var(--accent); color:#241a06;}
@@ -169,7 +172,7 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .sheet-count{font-size:13px; color:var(--ink-dim); font-weight:500;}
 .chev{color:var(--ink-faint); transition:transform .22s ease;}
 .sheet.expanded .chev{transform:rotate(180deg);}
-.sheet-list{overflow-y:auto; touch-action:pan-y; padding:0 10px 14px; max-height:calc(60vh - 56px);}
+.sheet-list{overflow-y:auto; touch-action:pan-y pinch-zoom; padding:0 10px 14px; max-height:calc(60vh - 56px);}
 .empty-row{color:var(--ink-faint); font-size:13px; text-align:center; padding:20px 10px 26px;}
 .credit-line{
   text-align:center; padding:14px 10px 6px; margin-top:4px;
@@ -185,13 +188,13 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .about-block a{color:var(--accent); text-decoration:none; font-weight:600;}
 .about-block + .about-block a{color:var(--accent-2);}
 .ver-badge{
-  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.06em;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:10px; letter-spacing:.06em;
   color:var(--ink-faint); background:var(--panel-2); border:1px solid var(--line);
   padding:3px 8px; border-radius:20px; margin-left:auto;
 }
 .about-name{font-size:17px; font-weight:600; color:var(--ink); margin:0;}
 .about-by{
-  font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.06em;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11px; letter-spacing:.06em;
   color:var(--accent); text-transform:uppercase; margin:0;
 }
 .about-licence{
@@ -213,10 +216,11 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .row-dot.note{background:var(--ink-faint); border-radius:1px;}
 .row-name{
   flex:1; min-width:0; background:transparent; border:none; outline:none;
-  color:var(--ink); font-family:'Space Grotesk',sans-serif; font-size:14px; padding:4px 2px;
+  color:var(--ink); font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size:16px; padding:4px 2px;
 }
 .row-meta{
-  font-family:'JetBrains Mono',monospace; font-size:9.5px;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:9.5px;
   color:var(--ink-faint); flex:0 0 auto; padding-right:2px;
 }
 .row-btn{
@@ -235,18 +239,18 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 }
 .detail-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .detail-label{
-  font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.08em;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:9.5px; letter-spacing:.08em;
   text-transform:uppercase; color:var(--ink-faint); flex:0 0 58px;
 }
 .chip{
   border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim);
-  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.04em;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:10px; letter-spacing:.04em;
   text-transform:uppercase; padding:5px 9px; border-radius:7px; cursor:pointer;
 }
 .chip.on{background:var(--accent); color:#241a06; border-color:var(--accent);}
 .detail input[type=range]{flex:1; min-width:90px; accent-color:var(--accent);}
 .evo-val{
-  font-family:'JetBrains Mono',monospace; font-size:10.5px;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:10.5px;
   color:var(--accent); flex:0 0 34px; text-align:right;
 }
 
@@ -266,7 +270,7 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 textarea#dslOut, textarea#dslIn{
   width:100%; min-height:170px; max-height:38vh;
   background:var(--panel-2); border:1px solid var(--panel-3); border-radius:10px;
-  font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.6;
+  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:16px; line-height:1.55;
   padding:10px; resize:none; outline:none;
 }
 textarea#dslOut{color:var(--accent-2);}
@@ -282,7 +286,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 .file-btn{display:inline-flex; align-items:center; cursor:pointer; margin-right:auto;}
 .btn{
   border:none; border-radius:9px; padding:10px 16px;
-  font-family:'Space Grotesk',sans-serif; font-size:13.5px; font-weight:600; cursor:pointer;
+  font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size:13.5px; font-weight:600; cursor:pointer;
 }
 .btn-ghost{background:var(--panel-3); color:var(--ink-dim);}
 .btn-accent{background:var(--accent); color:#241a06;}
@@ -313,7 +317,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 <header>
   <div class="title-wrap">
     <span class="eyebrow tappable" id="aboutTrigger">Wardley Sketch<span class="save-status" id="saveStatus"></span></span>
-    <input id="titleInput" value="Untitled Map" maxlength="60">
+    <input id="titleInput" value="Untitled Map" maxlength="60" aria-label="Map title">
   </div>
   <div class="header-btns">
     <button class="icon-btn info" id="aboutBtn" title="About this app">
@@ -331,7 +335,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   </div>
 </header>
 
-<div class="map-area">
+<main class="map-area">
   <div class="y-axis"><span>VISIBLE</span><span>INVISIBLE</span></div>
   <div class="canvas-col">
     <div class="canvas-wrap" id="canvasWrap">
@@ -371,7 +375,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       <span style="flex-basis:25%">Commodity</span>
     </div>
   </div>
-</div>
+</main>
 
 <div class="sheet" id="sheet">
   <div class="sheet-handle" id="sheetHandle">
@@ -388,7 +392,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   <div class="card">
     <h2><span class="eyebrow" style="font-size:10px;">Import DSL</span></h2>
     <p>Paste OnlineWardleyMaps syntax. Components, anchors, evolve, inertia, notes and all link types are drawn; pipelines, annotations and styling are carried through untouched on export.</p>
-    <textarea id="dslIn" spellcheck="false" placeholder="title My Map&#10;&#10;anchor Customer [0.95, 0.55]&#10;component Website [0.70, 0.75]&#10;evolve Website 0.85&#10;&#10;Customer-&gt;Website"></textarea>
+    <textarea id="dslIn" spellcheck="false" aria-label="Wardley Maps DSL to import" placeholder="title My Map&#10;&#10;anchor Customer [0.95, 0.55]&#10;component Website [0.70, 0.75]&#10;evolve Website 0.85&#10;&#10;Customer-&gt;Website"></textarea>
     <div class="import-warn" id="importWarn" hidden></div>
     <div class="card-actions">
       <label class="btn btn-ghost file-btn">Open file<input type="file" id="dslFile" accept=".owm,.txt,.md,text/plain" style="display:none"></label>
@@ -402,7 +406,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   <div class="card">
     <h2><span class="eyebrow" style="font-size:10px;">DSL</span></h2>
     <p>OnlineWardleyMaps syntax — paste into wardleymaps.ai or any compatible renderer, or save it as a file you can reopen here later.</p>
-    <textarea id="dslOut" readonly spellcheck="false"></textarea>
+    <textarea id="dslOut" readonly spellcheck="false" aria-label="Exported Wardley Maps DSL"></textarea>
     <div class="card-actions">
       <button class="btn btn-ghost" id="exportCloseBtn">Close</button>
       <button class="btn btn-ghost" id="saveFileBtn">Save file</button>
@@ -453,14 +457,19 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.0.0';
+  const APP_VERSION = '1.0.1';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
 
   // ---------- Viewport height fix ----------
   function syncViewportHeight(){
-    const h = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+    const vv = window.visualViewport;
+    // While the user is pinch-zoomed the visual viewport shrinks by design.
+    // Writing that into --app-h would collapse the layout, so only track it
+    // at normal scale — which is exactly when the keyboard matters.
+    if(vv && vv.scale > 1.01) return;
+    const h = vv ? vv.height : window.innerHeight;
     document.documentElement.style.setProperty('--app-h', h + 'px');
     window.scrollTo(0, 0);
   }
@@ -775,8 +784,8 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       const label = l.flowLabel || null;
       if(label || l.ctx){
         const mx=(x1+x2)/2, my=(y1+y2)/2;
-        if(label) s += `<text x="${mx}" y="${my-6}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="var(--accent-2)">${esc(label)}</text>`;
-        if(l.ctx) s += `<text x="${mx}" y="${my+(label?12:6)}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--ink-faint)">${esc(l.ctx)}</text>`;
+        if(label) s += `<text x="${mx}" y="${my-6}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="13" fill="var(--accent-2)">${esc(label)}</text>`;
+        if(l.ctx) s += `<text x="${mx}" y="${my+(label?12:6)}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="11" fill="var(--ink-faint)">${esc(l.ctx)}</text>`;
       }
     });
     edgesLayer.innerHTML = s;
@@ -789,7 +798,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       e += `<line x1="${x1+15}" y1="${y}" x2="${x2-15}" y2="${y}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#ghostArrow)" opacity="0.75"/>`;
       e += `<circle cx="${x2}" cy="${y}" r="12" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.9"/>`;
       if(n.evolve.newName)
-        e += `<text x="${x2}" y="${y+30}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" fill="var(--accent)" opacity="0.9">${esc(n.evolve.newName)}</text>`;
+        e += `<text x="${x2}" y="${y+30}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="13" fill="var(--accent)" opacity="0.9">${esc(n.evolve.newName)}</text>`;
     });
     evolveLayer.innerHTML = e;
 
@@ -812,12 +821,12 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       const ly = n.label ? cy - n.label.y : cy+4.5;
       const anchor = n.label ? 'middle' : (cx < 820 ? 'start' : 'end');
       const dec = (n.decorators && n.decorators.length)
-        ? `<text x="${cx}" y="${cy-24}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="var(--ink-faint)">${esc(n.decorators.join(' '))}</text>` : '';
+        ? `<text x="${cx}" y="${cy-24}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="11" fill="var(--ink-faint)">${esc(n.decorators.join(' '))}</text>` : '';
       g += `<g data-id="${n.id}" data-kind="node" style="cursor:pointer;">
         ${guides}${ring}${inertia}
         ${nodeGlyph(n, cx, cy, sel)}
         ${dec}
-        <text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="JetBrains Mono, monospace" font-size="14" fill="var(--ink)">${esc(n.name)}</text>
+        <text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="14" fill="var(--ink)">${esc(n.name)}</text>
       </g>`;
     });
     nodesLayer.innerHTML = g;
@@ -830,7 +839,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       const box = sel ? `<rect x="${cx-6}" y="${cy-16}" width="12" height="22" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>` : '';
       nt += `<g data-id="${o.id}" data-kind="note" style="cursor:pointer;">
         ${box}
-        <text x="${cx}" y="${cy}" font-family="Space Grotesk, sans-serif" font-style="italic" font-size="15" fill="${sel?'var(--accent)':'var(--ink-dim)'}">${esc(o.text)}</text>
+        <text x="${cx}" y="${cy}" font-family="Space Grotesk, system-ui, sans-serif" font-style="italic" font-size="15" fill="${sel?'var(--accent)':'var(--ink-dim)'}">${esc(o.text)}</text>
       </g>`;
     });
     notesLayer.innerHTML = nt;
@@ -865,7 +874,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       const linkOn = n.id===linkFromId ? ' link-on' : '';
       s += `<div class="row${sel?' selected':''}" data-row-id="${n.id}" data-row-kind="node">
         <span class="row-dot ${n.kind}"></span>
-        <input class="row-name" data-name-id="${n.id}" value="${esc(n.name)}" maxlength="40">
+        <input class="row-name" data-name-id="${n.id}" value="${esc(n.name)}" maxlength="40" aria-label="Component name">
         <span class="row-meta">v${(1-n.y).toFixed(2)}&nbsp;e${n.x.toFixed(2)}</span>
         <button class="row-btn${linkOn}" data-action="link" data-id="${n.id}" title="Link">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 017 7h2"/><path d="M15 7h2a5 5 0 010 10h-2"/><path d="M8 12h8"/></svg>
@@ -880,7 +889,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       const sel = (selectedKind==='note' && o.id===selectedId);
       s += `<div class="row${sel?' selected':''}" data-row-id="${o.id}" data-row-kind="note" style="${sel?'border-radius:10px;margin-bottom:6px;':''}">
         <span class="row-dot note"></span>
-        <input class="row-name" data-note-id="${o.id}" value="${esc(o.text)}" maxlength="80" style="font-style:italic;">
+        <input class="row-name" data-note-id="${o.id}" value="${esc(o.text)}" maxlength="80" style="font-style:italic;" aria-label="Note text">
         <span class="row-meta">note</span>
         <button class="row-btn del" data-action="delete" data-id="${o.id}" data-kind="note" title="Delete">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>
@@ -903,7 +912,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       </div>
       ${ev ? `<div class="detail-row">
         <span class="detail-label">Target</span>
-        <input type="range" min="0.03" max="0.97" step="0.01" value="${ev.to}" data-detail="evolveTo" data-id="${n.id}">
+        <input type="range" min="0.03" max="0.97" step="0.01" value="${ev.to}" data-detail="evolveTo" data-id="${n.id}" aria-label="Evolution target">
         <span class="evo-val">${Number(ev.to).toFixed(2)}</span>
       </div>` : ''}
     </div>`;

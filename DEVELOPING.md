@@ -41,10 +41,10 @@ app's info card won't be the version actually running:
 
 ```js
 // index.html — near the top of the <script>
-const APP_VERSION = '1.0.1';             // was 1.0.0
+const APP_VERSION = '1.0.2';             // was 1.0.1
 
 // sw.js — first line
-const CACHE = 'wardley-sketch-v1.0.1';   // was v1.0.0
+const CACHE = 'wardley-sketch-v1.0.2';   // was v1.0.1
 ```
 
 Skip the `CACHE` bump and returning visitors keep serving the old cached copy.
