@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 wernercoetzeeza
+Copyright (c) 2026 Werner Coetzee, ExploreNew (Pty) Ltd
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+The Wardley Mapping method is the work of Simon Wardley (https://blog.gardeviance.org/),
+provided to the community under a Creative Commons Share Alike licence. The MIT
+licence above applies to this application's source code only and does not extend
+to the mapping method itself.
