@@ -355,6 +355,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
           </marker>
         </defs>
         <g id="gridLayer"></g>
+        <g id="pipeLayer"></g>
         <g id="edgesLayer"></g>
         <g id="evolveLayer"></g>
         <g id="nodesLayer"></g>
@@ -394,7 +395,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 <div class="overlay" id="importOverlay" hidden>
   <div class="card">
     <h2><span class="eyebrow" style="font-size:10px;">Import DSL</span></h2>
-    <p>Paste OnlineWardleyMaps syntax. Components, anchors, evolve, inertia, notes and all link types are drawn; pipelines, annotations and styling are carried through untouched on export.</p>
+    <p>Paste OnlineWardleyMaps syntax. Components, anchors, pipelines, evolve, inertia, notes and all link types are drawn; annotations and styling are carried through untouched on export.</p>
     <textarea id="dslIn" spellcheck="false" aria-label="Wardley Maps DSL to import" placeholder="title My Map&#10;&#10;anchor Customer [0.95, 0.55]&#10;component Website [0.70, 0.75]&#10;evolve Website 0.85&#10;&#10;Customer-&gt;Website"></textarea>
     <div class="import-warn" id="importWarn" hidden></div>
     <div class="card-actions">
@@ -462,7 +463,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.0.3';
+  const APP_VERSION = '1.1.0';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
@@ -522,6 +523,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   // ---------- DOM ----------
   const board = document.getElementById('board');
   const gridLayer = document.getElementById('gridLayer');
+  const pipeLayer = document.getElementById('pipeLayer');
   const edgesLayer = document.getElementById('edgesLayer');
   const evolveLayer = document.getElementById('evolveLayer');
   const nodesLayer = document.getElementById('nodesLayer');
@@ -641,7 +643,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   ];
 
   function parseDSL(text){
-    const res = {title:null, nodes:[], links:[], notes:[], preserved:[], skipped:0, stats:{}};
+    const res = {title:null, nodes:[], links:[], notes:[], pipelines:[], preserved:[], skipped:0, stats:{}};
     const seen = new Map();
     const rawLinks = [];
     const lines = String(text).split(/\r?\n/);
@@ -653,20 +655,34 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       let m = line.match(/^title\s+(.+)$/i);
       if(m){ res.title = m[1].trim().slice(0,60); continue; }
 
+      // Pipeline, nested form:  pipeline Name { component Child [evo] ... }
       m = line.match(/^pipeline\s+(.+?)\s*\{\s*$/i);
       if(m){
-        const body = []; let depth = 1, j = i+1;
-        while(j < lines.length && depth > 0){
-          const l = lines[j];
-          if(/\{\s*$/.test(l.trim())) depth++;
-          if(/^\s*\}/.test(l)){ depth--; if(depth===0) break; }
-          body.push(l); j++;
+        const children = []; let j = i+1;
+        while(j < lines.length){
+          const l = lines[j].trim();
+          if(l.startsWith('}')) break;
+          // Children carry evolution only — visibility is inherited from
+          // the parent, which is what makes it a pipeline.
+          const cm = l.match(/^component\s+(.+?)\s*\[\s*(-?[\d.]+)\s*(?:,\s*(-?[\d.]+)\s*)?\]/i);
+          if(cm){
+            const evo = cm[3] != null ? parseFloat(cm[3]) : parseFloat(cm[2]);
+            if(isFinite(evo)) children.push({name: cm[1].trim().slice(0,40), evo: r2(clamp(evo))});
+          }
+          j++;
         }
-        res.preserved.push({kind:'pipelineBlock', name:m[1].trim(), body:body.join('\n')});
+        res.pipelines.push({name:m[1].trim(), v:2, from:null, to:null, children});
         i = j; continue;
       }
-      m = line.match(/^pipeline\s+(.+?)\s*(\[.*\])?\s*$/i);
-      if(m){ res.preserved.push({kind:'pipeline', name:m[1].trim(), rest:(m[2]||'').trim()}); continue; }
+      // Pipeline, legacy form:  pipeline Name [x1, x2]   (bounds optional)
+      m = line.match(/^pipeline\s+(.+?)\s*\[\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\]\s*$/i);
+      if(m){
+        res.pipelines.push({name:m[1].trim(), v:1,
+          from:r2(clamp(parseFloat(m[2]))), to:r2(clamp(parseFloat(m[3]))), children:[]});
+        continue;
+      }
+      m = line.match(/^pipeline\s+([^\[\]{}]+?)\s*$/i);
+      if(m){ res.pipelines.push({name:m[1].trim(), v:1, from:null, to:null, children:[]}); continue; }
 
       m = line.match(new RegExp('^('+NODE_KINDS.join('|')+')\\s+(.+?)\\s*\\[\\s*(-?[\\d.]+)\\s*,\\s*(-?[\\d.]+)\\s*\\](.*)$','i'));
       if(m){
@@ -680,7 +696,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         const t = parseTrailing(m[5]);
         res.nodes.push({name, kind, x:r2(clamp(evo)), y:r2(clamp(1-vis)),
           label:t.label, inertia:t.inertia, decorators:t.decorators,
-          url:t.url, extra:t.extra, evolve:null});
+          url:t.url, extra:t.extra, evolve:null, pipeline:null});
         continue;
       }
 
@@ -735,6 +751,14 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     });
     if(unresolved) res.stats.unresolved = unresolved;
 
+    // Attach each pipeline to its component. Doing this rather than keeping
+    // them in `preserved` means rename and delete are handled for free.
+    res.pipelines.forEach(pl=>{
+      const n = res.nodes.find(n=>n.name.toLowerCase() === pl.name.toLowerCase());
+      if(n) n.pipeline = pl;
+      else res.preserved.push({kind:'pipelineOrphan', name:pl.name, pl});
+    });
+
     res.preserved = res.preserved.filter(p=>{
       if(p.kind !== 'evolve') return true;
       const n = res.nodes.find(n=>n.name.toLowerCase() === p.name.toLowerCase());
@@ -756,6 +780,23 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         out.push(`evolve ${nm} ${n.evolve.to}${serializeTrailing(n.evolve)}`);
       }
     });
+
+    const piped = nodes.filter(n=>n.pipeline);
+    if(piped.length){
+      out.push('');
+      piped.forEach(n=>{
+        const pl = n.pipeline;
+        if(pl.v === 2 && pl.children.length){
+          out.push(`pipeline ${n.name} {`);
+          pl.children.forEach(c=> out.push(`  component ${c.name} [${c.evo}]`));
+          out.push('}');
+        } else if(pl.from != null && pl.to != null){
+          out.push(`pipeline ${n.name} [${pl.from}, ${pl.to}]`);
+        } else {
+          out.push(`pipeline ${n.name}`);
+        }
+      });
+    }
     if(notes.length){
       out.push('');
       notes.forEach(nt=> out.push(`note ${nt.text} [${(1-nt.y).toFixed(2)}, ${nt.x.toFixed(2)}]`));
@@ -769,11 +810,29 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         out.push(`${a.name}${op}${b.name}${l.ctx ? '; '+l.ctx : ''}`);
       });
     }
-    const keep = preserved.filter(p => p.kind === 'raw' || live.has(String(p.name||'').toLowerCase()));
+    const keep = preserved.filter(p => {
+      if(p.kind === 'raw') return true;
+      if(p.kind === 'pipelineOrphan'){
+        // Dangling in the source file rather than orphaned by an edit here,
+        // so keep it — unless a component of that name now owns a pipeline,
+        // which would emit a duplicate.
+        const n = nodes.find(n=>n.name.toLowerCase() === String(p.name||'').toLowerCase());
+        return !(n && n.pipeline);
+      }
+      return live.has(String(p.name||'').toLowerCase());
+    });
     if(keep.length){
       out.push('');
       keep.forEach(p=>{
         if(p.kind === 'raw') out.push(p.raw);
+        else if(p.kind === 'pipelineOrphan'){
+          if(p.pl.v === 2 && p.pl.children.length){
+            out.push(`pipeline ${p.name} {`);
+            p.pl.children.forEach(c=> out.push(`  component ${c.name} [${c.evo}]`));
+            out.push('}');
+          } else if(p.pl.from != null) out.push(`pipeline ${p.name} [${p.pl.from}, ${p.pl.to}]`);
+          else out.push(`pipeline ${p.name}`);
+        }
         else if(p.kind === 'pipelineBlock') out.push(`pipeline ${p.name} {`, p.body, '}');
         else if(p.kind === 'pipeline') out.push(`pipeline ${p.name}${p.rest?' '+p.rest:''}`);
         else if(p.kind === 'evolve'){
@@ -802,8 +861,44 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${A}" stroke="${BG}" stroke-width="2"/>`;
   }
 
+  // Where a component's pipeline box starts and ends on the evolution axis.
+  function pipelineBounds(n){
+    const pl = n.pipeline;
+    if(!pl) return null;
+    if(pl.v === 2 && pl.children.length){
+      const es = pl.children.map(c=>c.evo);
+      return {from: clamp(Math.min(...es) - 0.04), to: clamp(Math.max(...es) + 0.04)};
+    }
+    if(pl.from != null && pl.to != null)
+      return {from: clamp(Math.min(pl.from, pl.to)), to: clamp(Math.max(pl.from, pl.to))};
+    // Unbounded legacy pipeline — OWM auto-sizes; sit it around the component.
+    return {from: clamp(n.x - 0.08), to: clamp(n.x + 0.08)};
+  }
+
   function renderCanvas(){
     const FONT_MONO = 'JetBrains Mono, ui-monospace, Menlo, monospace';
+
+    // --- pipelines (drawn first so links and nodes sit above) ---
+    let pp = '';
+    nodes.forEach(n=>{
+      const b = pipelineBounds(n);
+      if(!b) return;
+      const cx = px(n.x), cy = py(n.y);
+      const x1 = px(b.from), x2 = px(b.to);
+      const top = cy + R + 8, boxH = 15;
+      pp += `<line x1="${cx}" y1="${cy+R}" x2="${cx}" y2="${top}" stroke="var(--accent)" stroke-width="1.25" opacity="0.65"/>`;
+      pp += `<rect x="${x1}" y="${top}" width="${Math.max(8, x2-x1)}" height="${boxH}" rx="3" fill="var(--bg)" fill-opacity="0.5" stroke="var(--accent)" stroke-width="1.5" opacity="0.9"/>`;
+      const pl = n.pipeline;
+      if(pl.v === 2 && pl.children.length){
+        const my = top + boxH/2;
+        pl.children.forEach(c=>{
+          const chx = px(clamp(c.evo));
+          pp += `<rect x="${chx-3.5}" y="${my-3.5}" width="7" height="7" rx="1.5" fill="var(--accent)"/>`;
+          pp += `<text x="${chx}" y="${top+boxH+10}" text-anchor="middle" font-family="${FONT_MONO}" font-size="9" fill="var(--ink-faint)">${esc(c.name)}</text>`;
+        });
+      }
+    });
+    pipeLayer.innerHTML = pp;
 
     // --- links ---
     let s = '';
@@ -946,13 +1041,38 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         <span class="detail-label">Flags</span>
         <button class="chip${n.inertia?' on':''}" data-detail="inertia" data-id="${n.id}">Inertia</button>
         <button class="chip${ev?' on':''}" data-detail="evolve" data-id="${n.id}">Evolve</button>
+        <button class="chip${n.pipeline?' on':''}" data-detail="pipeline" data-id="${n.id}">Pipeline</button>
       </div>
       ${ev ? `<div class="detail-row">
         <span class="detail-label">Target</span>
         <input type="range" min="0.03" max="0.97" step="0.01" value="${ev.to}" data-detail="evolveTo" data-id="${n.id}" aria-label="Evolution target">
         <span class="evo-val">${Number(ev.to).toFixed(2)}</span>
       </div>` : ''}
+      ${pipeDetailHTML(n)}
     </div>`;
+  }
+
+  function pipeDetailHTML(n){
+    const pl = n.pipeline;
+    if(!pl) return '';
+    if(pl.v === 2){
+      const k = pl.children.length;
+      return `<div class="detail-row">
+        <span class="detail-label">Stages</span>
+        <span class="row-meta">${k} stage${k===1?'':'s'} &middot; ${pl.children.map(c=>esc(c.name)).join(', ') || 'none'}</span>
+      </div>`;
+    }
+    const b = pipelineBounds(n);
+    return `<div class="detail-row">
+        <span class="detail-label">Start</span>
+        <input type="range" min="0.03" max="0.97" step="0.01" value="${b.from}" data-detail="pipeFrom" data-id="${n.id}" aria-label="Pipeline start">
+        <span class="evo-val">${b.from.toFixed(2)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">End</span>
+        <input type="range" min="0.03" max="0.97" step="0.01" value="${b.to}" data-detail="pipeTo" data-id="${n.id}" aria-label="Pipeline end">
+        <span class="evo-val">${b.to.toFixed(2)}</span>
+      </div>`;
   }
 
   function renderAll(){ renderCanvas(); renderBanner(); renderSheet(); }
@@ -975,7 +1095,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     if(!storageOK) return;
     clearTimeout(saveTimer); saveTimer = null;
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({v:2, title, nodes, links, notes, preserved, nextId}));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({v:3, title, nodes, links, notes, preserved, nextId}));
       setSaveStatus('saved');
     }catch(e){ storageOK = false; setSaveStatus('off'); }
   }
@@ -1008,6 +1128,18 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       evolve: (n.evolve && isFinite(n.evolve.to))
         ? {to:clamp(num(n.evolve.to,0.7)), newName:n.evolve.newName||null,
            label:n.evolve.label||null, decorators:n.evolve.decorators||[], extra:n.evolve.extra||''}
+        : null,
+      pipeline: (n.pipeline && typeof n.pipeline === 'object')
+        ? {
+            name: String(n.pipeline.name || n.name),
+            v: n.pipeline.v === 2 ? 2 : 1,
+            from: isFinite(n.pipeline.from) ? clamp(n.pipeline.from) : null,
+            to:   isFinite(n.pipeline.to)   ? clamp(n.pipeline.to)   : null,
+            children: Array.isArray(n.pipeline.children)
+              ? n.pipeline.children.filter(c=>c && isFinite(c.evo))
+                  .map(c=>({name:String(c.name||'stage').slice(0,40), evo:clamp(c.evo)}))
+              : []
+          }
         : null
     }));
     const ids = new Set(nodes.map(n=>n.id));
@@ -1020,6 +1152,29 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       .map(o=>({id:num(o.id,0), text:String(o.text||'note').slice(0,80),
                 x:clamp(num(o.x,0.5)), y:clamp(num(o.y,0.5))}));
     preserved = Array.isArray(d.preserved) ? d.preserved.filter(p=>p && typeof p==='object') : [];
+
+    // Maps saved before pipelines were drawn kept them as raw preserved
+    // statements. Promote any that match a live component so they render.
+    preserved = preserved.filter(pr=>{
+      if(pr.kind !== 'pipeline' && pr.kind !== 'pipelineBlock') return true;
+      const n = nodes.find(n=>n.name.toLowerCase() === String(pr.name||'').toLowerCase());
+      if(!n || n.pipeline) return true;
+      if(pr.kind === 'pipelineBlock'){
+        const children = [];
+        String(pr.body||'').split(/\r?\n/).forEach(l=>{
+          const cm = l.trim().match(/^component\s+(.+?)\s*\[\s*(-?[\d.]+)/i);
+          if(cm && isFinite(parseFloat(cm[2])))
+            children.push({name:cm[1].trim().slice(0,40), evo:clamp(parseFloat(cm[2]))});
+        });
+        n.pipeline = {name:n.name, v:2, from:null, to:null, children};
+      } else {
+        const bm = String(pr.rest||'').match(/\[\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\]/);
+        n.pipeline = bm
+          ? {name:n.name, v:1, from:clamp(parseFloat(bm[1])), to:clamp(parseFloat(bm[2])), children:[]}
+          : {name:n.name, v:1, from:null, to:null, children:[]};
+      }
+      return false;
+    });
     title = (typeof d.title==='string' && d.title.trim()) ? d.title.trim().slice(0,60) : 'Untitled Map';
     titleInput.value = title;
     const maxId = Math.max(0, ...nodes.map(n=>n.id), ...links.map(l=>l.id), ...notes.map(o=>o.id));
@@ -1034,7 +1189,8 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   // ---------- Mutations ----------
   function addNode(name, x, y){
     const n = {id:nextId++, name:name||('Component '+(nodes.length+1)), kind:'component',
-               x, y, inertia:false, label:null, decorators:[], url:null, extra:'', evolve:null};
+               x, y, inertia:false, label:null, decorators:[], url:null, extra:'',
+               evolve:null, pipeline:null};
     nodes.push(n);
     selectedId = n.id; selectedKind = 'node';
     renderAll(); scheduleSave(); expandTo(n.id);
@@ -1074,6 +1230,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     const old = n.name.toLowerCase();
     // keep preserved statements pointing at the right component
     preserved.forEach(p=>{ if(p.kind!=='raw' && String(p.name||'').toLowerCase()===old) p.name = next; });
+    if(n.pipeline) n.pipeline.name = next;
     n.name = next;
     renderAll(); scheduleSave();
   }
@@ -1298,6 +1455,10 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         n.evolve = n.evolve ? null
           : {to: Math.min(0.97, Math.max(n.x+0.15, 0.2)), newName:null, label:null, decorators:[], extra:''};
       }
+      else if(what==='pipeline'){
+        n.pipeline = n.pipeline ? null
+          : {name:n.name, v:1, from:clamp(n.x-0.08), to:clamp(n.x+0.08), children:[]};
+      }
       renderAll(); scheduleSave();
       return;
     }
@@ -1320,16 +1481,23 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   });
 
   sheetList.addEventListener('input', (e)=>{
-    const rng = e.target.closest('[data-detail="evolveTo"]');
-    if(rng){
-      const n = nodes.find(n=>n.id===Number(rng.dataset.id));
-      if(n && n.evolve){
-        n.evolve.to = parseFloat(rng.value);
-        const val = rng.parentElement.querySelector('.evo-val');
-        if(val) val.textContent = Number(n.evolve.to).toFixed(2);
-        renderCanvas(); scheduleSave();
-      }
+    const rng = e.target.closest('[data-detail]');
+    if(!rng) return;
+    const what = rng.dataset.detail;
+    const n = nodes.find(n=>n.id===Number(rng.dataset.id));
+    if(!n) return;
+    let shown = null;
+    if(what==='evolveTo' && n.evolve){
+      n.evolve.to = parseFloat(rng.value); shown = n.evolve.to;
+    } else if(what==='pipeFrom' && n.pipeline){
+      n.pipeline.from = parseFloat(rng.value); shown = n.pipeline.from;
+    } else if(what==='pipeTo' && n.pipeline){
+      n.pipeline.to = parseFloat(rng.value); shown = n.pipeline.to;
     }
+    if(shown === null) return;
+    const val = rng.parentElement.querySelector('.evo-val');
+    if(val) val.textContent = Number(shown).toFixed(2);
+    renderCanvas(); scheduleSave();
   });
   sheetList.addEventListener('change', (e)=>{
     if(e.target.matches('.row-name')){

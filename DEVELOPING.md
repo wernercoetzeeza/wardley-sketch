@@ -41,10 +41,10 @@ app's info card won't be the version actually running:
 
 ```js
 // index.html — near the top of the <script>
-const APP_VERSION = '1.0.4';             // was 1.0.3
+const APP_VERSION = '1.1.1';             // was 1.1.0
 
 // sw.js — first line
-const CACHE = 'wardley-sketch-v1.0.4';   // was v1.0.3
+const CACHE = 'wardley-sketch-v1.1.1';   // was v1.1.0
 ```
 
 Skip the `CACHE` bump and returning visitors keep serving the old cached copy.
@@ -94,11 +94,18 @@ intact — both in the README and in the app's info card.
 **State** is four arrays plus a title: `nodes`, `links`, `notes`, and
 `preserved`. Everything renders from those.
 
-**`preserved`** is the important one. The DSL parser models components, links
-and notes explicitly; every other OWM statement — pipelines, annotations,
+**`preserved`** is the important one. The DSL parser models components, links,
+notes and pipelines explicitly; every other OWM statement — annotations,
 `style`, `size`, `url` — is captured verbatim into `preserved` and re-emitted on
 export. That's what makes round-tripping lossless for constructs the app never
 draws.
+
+**Pipelines hang off their component** (`node.pipeline`) rather than living in
+`preserved`. That gets rename and delete handling for free: renaming a component
+carries its pipeline along, deleting one takes the pipeline with it. A pipeline
+naming a component that doesn't exist is the exception — it goes to `preserved`
+as `pipelineOrphan` and is re-emitted verbatim, because it was already dangling
+in the source file rather than broken by an edit here.
 
 Two consequences worth remembering when changing the model:
 
