@@ -398,7 +398,9 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     <textarea id="dslIn" spellcheck="false" aria-label="Wardley Maps DSL to import" placeholder="title My Map&#10;&#10;anchor Customer [0.95, 0.55]&#10;component Website [0.70, 0.75]&#10;evolve Website 0.85&#10;&#10;Customer-&gt;Website"></textarea>
     <div class="import-warn" id="importWarn" hidden></div>
     <div class="card-actions">
-      <label class="btn btn-ghost file-btn">Open file<input type="file" id="dslFile" accept=".owm,.txt,.md,text/plain" style="display:none"></label>
+      <label class="btn btn-ghost file-btn">Open file<!-- No accept filter: iOS resolves accept to its own type identifiers,
+           and .owm is not one it knows, so filtering greys the file out. -->
+      <input type="file" id="dslFile" style="display:none"></label>
       <button class="btn btn-ghost" id="importCloseBtn">Cancel</button>
       <button class="btn btn-accent" id="importGoBtn">Replace map</button>
     </div>
@@ -460,7 +462,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.0.2';
+  const APP_VERSION = '1.0.3';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
@@ -1378,11 +1380,13 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     // Prefer the OS share sheet on mobile — on iOS the download
     // attribute is unreliable, and sharing lets the user drop the
     // file straight into Files, Mail, or another app.
+    // Share ONLY the file: adding title/text alongside it makes iOS
+    // save that text as a separate clipping instead of the map.
     try{
       if(navigator.canShare && navigator.share && typeof File === 'function'){
         const file = new File([blob], filename, {type:'text/plain'});
         if(navigator.canShare({files:[file]})){
-          await navigator.share({files:[file], title: title || 'Wardley map'});
+          await navigator.share({files:[file]});
           return;
         }
       }
@@ -1418,8 +1422,23 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   document.getElementById('dslFile').addEventListener('change', (e)=>{
     const f = e.target.files && e.target.files[0];
     if(!f) return;
+    if(f.size > 2 * 1024 * 1024){
+      showToast('That file is too large to be a map');
+      e.target.value=''; return;
+    }
     const rd = new FileReader();
-    rd.onload = ()=>{ dslIn.value = String(rd.result||''); };
+    rd.onload = ()=>{
+      const txt = String(rd.result||'');
+      dslIn.value = txt;
+      importWarn.hidden = true;
+      if(!txt.trim()){
+        importWarn.hidden = false;
+        importWarn.textContent = 'That file is empty.';
+      } else if(!/^\s*(title|component|anchor|market|ecosystem|submap|pipeline)\b/mi.test(txt)){
+        importWarn.hidden = false;
+        importWarn.textContent = "That file doesn't look like map DSL — check you picked the right one.";
+      }
+    };
     rd.onerror = ()=> showToast("Couldn't read that file");
     rd.readAsText(f);
     e.target.value='';
