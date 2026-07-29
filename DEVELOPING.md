@@ -41,10 +41,10 @@ app's info card won't be the version actually running:
 
 ```js
 // index.html — near the top of the <script>
-const APP_VERSION = '1.2.1';             // was 1.2.0
+const APP_VERSION = '1.2.2';             // was 1.2.1
 
 // sw.js — first line
-const CACHE = 'wardley-sketch-v1.2.1';   // was v1.2.0
+const CACHE = 'wardley-sketch-v1.2.2';   // was v1.2.1
 ```
 
 Skip the `CACHE` bump and returning visitors keep serving the old cached copy.
@@ -118,6 +118,13 @@ Two consequences worth remembering when changing the model:
 - Deleting a component must drop `preserved` entries that reference it.
 
 Both are handled in `renameNode()` and `deleteEl()`.
+
+**The on-screen keyboard** is tracked manually. iOS does not shrink the layout
+viewport when the keyboard opens — only `visualViewport` reflects it — so a
+`position: fixed; bottom: 0` panel would sit underneath the keyboard. The app
+measures `window.innerHeight - visualViewport.height - visualViewport.offsetTop`
+into a `--kb` custom property; the sheet, modals and toast all offset by it, and
+the focused field is scrolled into view once the keyboard animation settles.
 
 **Persistence** is `localStorage`, written debounced on every mutation and
 flushed on `pagehide`/`visibilitychange`. Loading is deliberately defensive:

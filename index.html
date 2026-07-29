@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Wardley">
@@ -159,13 +159,17 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .seg button.on{background:var(--accent); color:#241a06;}
 
 .sheet{
-  position:fixed; left:0; right:0; bottom:0; z-index:25;
+  position:fixed; left:0; right:0; z-index:25;
+  /* --kb is the height the keyboard covers. iOS doesn't shrink the layout
+     viewport for it, so bottom:0 would sit underneath the keyboard. */
+  bottom:var(--kb, 0px);
   background:var(--panel); border-top:1px solid var(--line);
   border-radius:16px 16px 0 0; max-height:56px; overflow:hidden;
   transition:max-height .22s ease; padding-bottom:env(safe-area-inset-bottom);
   box-shadow:0 -8px 24px rgba(0,0,0,.28);
 }
-.sheet.expanded{max-height:60vh;}
+.sheet.expanded{max-height:min(60vh, var(--app-h, 100dvh) - 76px);}
+body.kb-open .sheet{padding-bottom:0;}
 .sheet-handle{
   height:56px; flex:0 0 56px; display:flex; align-items:center;
   justify-content:space-between; padding:0 16px; cursor:pointer;
@@ -175,7 +179,9 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .sheet-count{font-size:13px; color:var(--ink-dim); font-weight:500;}
 .chev{color:var(--ink-faint); transition:transform .22s ease;}
 .sheet.expanded .chev{transform:rotate(180deg);}
-.sheet-list{overflow-y:auto; touch-action:pan-y pinch-zoom; padding:0 10px 14px; max-height:calc(60vh - 56px);}
+.sheet-list{overflow-y:auto; touch-action:pan-y pinch-zoom; padding:0 10px 14px;
+  max-height:calc(min(60vh, var(--app-h, 100dvh) - 76px) - 56px);}
+
 .empty-row{color:var(--ink-faint); font-size:13px; text-align:center; padding:20px 10px 26px;}
 .credit-line{
   text-align:center; padding:14px 10px 6px; margin-top:4px;
@@ -270,12 +276,15 @@ svg#board{width:100%; height:100%; display:block; touch-action:none;}
 
 .overlay{
   position:fixed; inset:0; background:rgba(0,0,0,.55);
-  display:flex; align-items:center; justify-content:center; padding:24px; z-index:40;
+  display:flex; align-items:center; justify-content:center; z-index:40;
+  padding:24px 24px calc(24px + var(--kb, 0px));
 }
 .overlay[hidden]{display:none;}
 .card{
   background:var(--panel); border:1px solid var(--panel-3); border-radius:16px;
-  padding:18px; width:100%; max-width:440px; max-height:82vh;
+  padding:18px; width:100%; max-width:440px;
+  max-height:min(82vh, var(--app-h, 100dvh) - 48px);
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
   display:flex; flex-direction:column; gap:12px;
 }
 .card h2{margin:0; font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px;}
@@ -307,7 +316,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 .btn-danger{background:var(--danger); color:#2a0b08;}
 
 .toast{
-  position:fixed; bottom:calc(70px + env(safe-area-inset-bottom)); left:50%;
+  position:fixed; bottom:calc(70px + env(safe-area-inset-bottom) + var(--kb, 0px)); left:50%;
   transform:translateX(-50%) translateY(10px);
   background:var(--panel-3); color:var(--ink); font-size:12.5px; font-weight:500;
   padding:9px 16px; border-radius:20px; opacity:0; pointer-events:none;
@@ -474,7 +483,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.2.0';
+  const APP_VERSION = '1.2.1';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
@@ -488,8 +497,31 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     if(vv && vv.scale > 1.01) return;
     const h = vv ? vv.height : window.innerHeight;
     document.documentElement.style.setProperty('--app-h', h + 'px');
-    window.scrollTo(0, 0);
+
+    // How much of the window the on-screen keyboard is covering. iOS leaves
+    // the layout viewport at full height, so this is the only way to know.
+    const inset = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+    const kbOpen = inset > 80;
+    document.documentElement.style.setProperty('--kb', (kbOpen ? inset : 0) + 'px');
+    document.body.classList.toggle('kb-open', kbOpen);
+    if(!kbOpen) window.scrollTo(0, 0);
+    repositionAddPopup();
   }
+
+  // Keep whatever is being typed into visible once the keyboard has settled.
+  function revealFocused(el){
+    if(!el || document.activeElement !== el) return;
+    if(typeof el.scrollIntoView === 'function')
+      el.scrollIntoView({block:'center', inline:'nearest', behavior:'smooth'});
+  }
+  document.addEventListener('focusin', (e)=>{
+    const el = e.target;
+    if(!el || !el.matches || !el.matches('input, textarea')) return;
+    // The keyboard animates in; reveal after it lands, and again once the
+    // viewport has reported its final size.
+    setTimeout(()=> revealFocused(el), 300);
+    setTimeout(()=> revealFocused(el), 550);
+  }, true);
   syncViewportHeight();
   if(window.visualViewport){
     window.visualViewport.addEventListener('resize', syncViewportHeight);
@@ -1364,6 +1396,15 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     const pop = document.getElementById('addPopup');
     if(pop) pop.remove();
     pendingAddFrac = null;
+  }
+  function repositionAddPopup(){
+    const pop = document.getElementById('addPopup');
+    if(!pop) return;
+    const vv = window.visualViewport;
+    const visH = vv ? vv.height : window.innerHeight;
+    const r = pop.getBoundingClientRect();
+    const maxTop = visH - r.height - 10;
+    if(r.top > maxTop) pop.style.top = Math.max(8, maxTop) + 'px';
   }
 
   // ---------- Pointer ----------
