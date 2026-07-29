@@ -6,7 +6,7 @@ OnlineWardleyMaps DSL and finish it in a fuller editor.
 
 ### ▸ [Open the app](https://wernercoetzeeza.github.io/wardley-sketch/)
 
-Created by **Werner Coetzee** — ExploreNew (Pty) Ltd · v1.2.1
+Created by **Werner Coetzee** — ExploreNew (Pty) Ltd · v1.2.2
 
 ---
 
