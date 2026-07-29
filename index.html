@@ -82,6 +82,9 @@ header{
 .canvas-wrap{
   flex:1; position:relative; border:1px solid var(--line);
   border-radius:14px; background:var(--panel); overflow:hidden;
+  /* Covers the overlay children too, so a pinch that starts on the
+     hint text or zoom pill still reaches the canvas handler. */
+  touch-action:none;
 }
 svg#board{width:100%; height:100%; display:block; touch-action:none;}
 .zone-labels{display:flex; margin-top:6px; padding:0 1px;}
@@ -457,7 +460,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.0.1';
+  const APP_VERSION = '1.0.2';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
@@ -503,6 +506,11 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   let zoomLevel = 1;
   const ZOOM_MIN = 1, ZOOM_MAX = 4.5;
+  // The board's coordinate system is measured in CSS pixels rather than a
+  // fixed square, so one unit is the same length on both axes. A square
+  // viewBox stretched into a non-square box scales x and y differently,
+  // which turns circles into ellipses and squashes label text.
+  let boardW = 1000, boardH = 1000;
   let vb = {x:0, y:0, w:1000, h:1000};
   const pointers = new Map();
   let pinchDist = null, panLast = null, multiTouchOccurred = false;
@@ -540,10 +548,14 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     clearTimeout(showToast._t);
     showToast._t = setTimeout(()=> toastEl.classList.remove('show'), 2000);
   }
+  // Map state stores fractions (0-1); these convert to board pixels.
+  const px = f => f * boardW;
+  const py = f => f * boardH;
+
   function clientToFrac(clientX, clientY){
     const r = board.getBoundingClientRect();
     const relX = (clientX - r.left) / r.width, relY = (clientY - r.top) / r.height;
-    let fx = (vb.x + relX*vb.w)/1000, fy = (vb.y + relY*vb.h)/1000;
+    const fx = (vb.x + relX*vb.w)/boardW, fy = (vb.y + relY*vb.h)/boardH;
     return {x: Math.min(0.97, Math.max(0.03, fx)), y: Math.min(0.97, Math.max(0.03, fy))};
   }
   function applyViewBox(){
@@ -552,23 +564,42 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     zoomResetBtn.classList.toggle('show', zoomLevel > 1.02);
   }
   function clampVb(){
-    vb.w = Math.max(1000/ZOOM_MAX, Math.min(1000, vb.w));
-    vb.h = Math.max(1000/ZOOM_MAX, Math.min(1000, vb.h));
-    vb.x = Math.max(0, Math.min(1000 - vb.w, vb.x));
-    vb.y = Math.max(0, Math.min(1000 - vb.h, vb.y));
+    vb.w = Math.max(boardW/ZOOM_MAX, Math.min(boardW, vb.w));
+    vb.h = Math.max(boardH/ZOOM_MAX, Math.min(boardH, vb.h));
+    vb.x = Math.max(0, Math.min(boardW - vb.w, vb.x));
+    vb.y = Math.max(0, Math.min(boardH - vb.h, vb.y));
   }
-  function resetZoom(){ zoomLevel = 1; vb = {x:0,y:0,w:1000,h:1000}; applyViewBox(); }
+  function resetZoom(){ zoomLevel = 1; vb = {x:0,y:0,w:boardW,h:boardH}; applyViewBox(); }
+
+  // Re-measure when the board changes shape (rotation, window resize).
+  function measureBoard(){
+    const r = board.getBoundingClientRect();
+    if(!r.width || !r.height) return false;
+    if(Math.abs(r.width-boardW) < 0.5 && Math.abs(r.height-boardH) < 0.5) return false;
+    const wasFull = zoomLevel <= 1.02;
+    boardW = r.width; boardH = r.height;
+    if(wasFull) vb = {x:0, y:0, w:boardW, h:boardH};
+    else { vb.w = boardW/zoomLevel; vb.h = boardH/zoomLevel; clampVb(); }
+    applyViewBox();
+    buildGrid();
+    return true;
+  }
+  function handleBoardResize(){ if(measureBoard()) renderCanvas(); }
   zoomResetBtn.addEventListener('click', resetZoom);
 
   function buildGrid(){
     let s = '';
-    for(let i=1;i<4;i++) s += `<line x1="0" y1="${i*250}" x2="1000" y2="${i*250}" stroke="var(--line)" stroke-width="1"/>`;
-    [170,400,750].forEach(x=>{
-      s += `<line x1="${x}" y1="0" x2="${x}" y2="1000" stroke="var(--zone-line)" stroke-width="1.5" stroke-dasharray="3 6"/>`;
+    for(let i=1;i<4;i++){
+      const y = boardH*i/4;
+      s += `<line x1="0" y1="${y}" x2="${boardW}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+    }
+    // Zone boundaries match the labels beneath the board.
+    [0.17, 0.40, 0.75].forEach(f=>{
+      const x = boardW*f;
+      s += `<line x1="${x}" y1="0" x2="${x}" y2="${boardH}" stroke="var(--zone-line)" stroke-width="1.5" stroke-dasharray="3 6"/>`;
     });
     gridLayer.innerHTML = s;
   }
-  buildGrid();
 
   // ============================================================
   // DSL: tokenizer + serializer
@@ -753,39 +784,42 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   }
 
   // ---------- Rendering ----------
-  function nodeGlyph(n, cx, cy, sel){
+  const R = 9;   // node radius in CSS pixels
+
+  function nodeGlyph(n, cx, cy){
     const A = 'var(--accent)', BG = 'var(--bg)';
     if(n.kind === 'anchor')
-      return `<rect x="${cx-12}" y="${cy-12}" width="24" height="24" rx="5" fill="${A}" stroke="${BG}" stroke-width="2.5"/>`;
+      return `<rect x="${cx-R}" y="${cy-R}" width="${R*2}" height="${R*2}" rx="3" fill="${A}" stroke="${BG}" stroke-width="2"/>`;
     if(n.kind === 'submap')
-      return `<rect x="${cx-12}" y="${cy-12}" width="24" height="24" rx="5" fill="${BG}" stroke="${A}" stroke-width="3"/>`;
+      return `<rect x="${cx-R}" y="${cy-R}" width="${R*2}" height="${R*2}" rx="3" fill="${BG}" stroke="${A}" stroke-width="2.5"/>`;
     if(n.kind === 'market')
-      return `<circle cx="${cx}" cy="${cy}" r="13" fill="${BG}" stroke="${A}" stroke-width="3"/>
-              <circle cx="${cx}" cy="${cy}" r="4.5" fill="${A}"/>`;
+      return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${BG}" stroke="${A}" stroke-width="2.5"/>
+              <circle cx="${cx}" cy="${cy}" r="3" fill="${A}"/>`;
     if(n.kind === 'ecosystem')
-      return `<circle cx="${cx}" cy="${cy}" r="13" fill="${BG}" stroke="${A}" stroke-width="3" stroke-dasharray="4 3"/>`;
-    return `<circle cx="${cx}" cy="${cy}" r="13" fill="${A}" stroke="${BG}" stroke-width="2.5"/>`;
+      return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${BG}" stroke="${A}" stroke-width="2.5" stroke-dasharray="3 2.5"/>`;
+    return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${A}" stroke="${BG}" stroke-width="2"/>`;
   }
 
   function renderCanvas(){
+    const FONT_MONO = 'JetBrains Mono, ui-monospace, Menlo, monospace';
+
     // --- links ---
     let s = '';
     links.forEach(l=>{
       const a = nodes.find(n=>n.id===l.a), b = nodes.find(n=>n.id===l.b);
       if(!a||!b) return;
-      const x1=a.x*1000, y1=a.y*1000, x2=b.x*1000, y2=b.y*1000;
-      const dash = (l.op === '-.->') ? ' stroke-dasharray="7 6"' : '';
+      const x1=px(a.x), y1=py(a.y), x2=px(b.x), y2=py(b.y);
+      const dash = (l.op === '-.->') ? ' stroke-dasharray="6 5"' : '';
       const flow = l.op.charAt(0) === '+';
-      const w = flow ? 3.5 : 2.5;
+      const w = flow ? 2.75 : 1.75;
       let mk = ' marker-end="url(#arrow)"';
       if(l.op === '+<') mk = ' marker-start="url(#arrowBack)"';
       else if(l.op === '+<>') mk = ' marker-end="url(#arrow)" marker-start="url(#arrowBack)"';
       s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--accent-2)" stroke-width="${w}"${dash}${mk} opacity="${flow?0.95:0.8}"/>`;
-      const label = l.flowLabel || null;
-      if(label || l.ctx){
+      if(l.flowLabel || l.ctx){
         const mx=(x1+x2)/2, my=(y1+y2)/2;
-        if(label) s += `<text x="${mx}" y="${my-6}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="13" fill="var(--accent-2)">${esc(label)}</text>`;
-        if(l.ctx) s += `<text x="${mx}" y="${my+(label?12:6)}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="11" fill="var(--ink-faint)">${esc(l.ctx)}</text>`;
+        if(l.flowLabel) s += `<text x="${mx}" y="${my-5}" text-anchor="middle" font-family="${FONT_MONO}" font-size="11" fill="var(--accent-2)">${esc(l.flowLabel)}</text>`;
+        if(l.ctx) s += `<text x="${mx}" y="${my+(l.flowLabel?10:5)}" text-anchor="middle" font-family="${FONT_MONO}" font-size="10" fill="var(--ink-faint)">${esc(l.ctx)}</text>`;
       }
     });
     edgesLayer.innerHTML = s;
@@ -794,39 +828,41 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     let e = '';
     nodes.forEach(n=>{
       if(!n.evolve) return;
-      const x1=n.x*1000, y=n.y*1000, x2=clamp(n.evolve.to)*1000;
-      e += `<line x1="${x1+15}" y1="${y}" x2="${x2-15}" y2="${y}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#ghostArrow)" opacity="0.75"/>`;
-      e += `<circle cx="${x2}" cy="${y}" r="12" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="4 3" opacity="0.9"/>`;
+      const x1=px(n.x), y=py(n.y), x2=px(clamp(n.evolve.to));
+      if(x2 - x1 > R*2 + 6)
+        e += `<line x1="${x1+R+2}" y1="${y}" x2="${x2-R-2}" y2="${y}" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#ghostArrow)" opacity="0.75"/>`;
+      e += `<circle cx="${x2}" cy="${y}" r="${R-1}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2.5" opacity="0.9"/>`;
       if(n.evolve.newName)
-        e += `<text x="${x2}" y="${y+30}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="13" fill="var(--accent)" opacity="0.9">${esc(n.evolve.newName)}</text>`;
+        e += `<text x="${x2}" y="${y+22}" text-anchor="middle" font-family="${FONT_MONO}" font-size="11" fill="var(--accent)" opacity="0.9">${esc(n.evolve.newName)}</text>`;
     });
     evolveLayer.innerHTML = e;
 
     // --- nodes ---
     let g = '';
     nodes.forEach(n=>{
-      const cx=n.x*1000, cy=n.y*1000;
+      const cx=px(n.x), cy=py(n.y);
       const sel = (selectedKind==='node' && n.id===selectedId);
       const isFrom = n.id===linkFromId;
       let guides = '';
       if(sel || isFrom){
-        guides = `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="1000" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 6"/>
-                  <line x1="${cx}" y1="${cy}" x2="0" y2="${cy}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 6"/>`;
+        guides = `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${boardH}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 5"/>
+                  <line x1="${cx}" y1="${cy}" x2="0" y2="${cy}" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="2 5"/>`;
       }
       const ring = (sel||isFrom)
-        ? `<circle cx="${cx}" cy="${cy}" r="22" fill="none" stroke="${isFrom?'var(--accent-2)':'var(--accent)'}" stroke-width="2"/>` : '';
+        ? `<circle cx="${cx}" cy="${cy}" r="${R+6}" fill="none" stroke="${isFrom?'var(--accent-2)':'var(--accent)'}" stroke-width="1.75"/>` : '';
       const inertia = n.inertia
-        ? `<line x1="${cx+20}" y1="${cy-15}" x2="${cx+20}" y2="${cy+15}" stroke="var(--ink)" stroke-width="4" stroke-linecap="round" opacity="0.85"/>` : '';
-      const lx = n.label ? cx + n.label.x : (cx < 820 ? cx+20 : cx-20);
-      const ly = n.label ? cy - n.label.y : cy+4.5;
-      const anchor = n.label ? 'middle' : (cx < 820 ? 'start' : 'end');
+        ? `<line x1="${cx+R+5}" y1="${cy-R-2}" x2="${cx+R+5}" y2="${cy+R+2}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round" opacity="0.85"/>` : '';
+      const labelRight = cx < boardW - 90;
+      const lx = n.label ? cx + n.label.x : (labelRight ? cx+R+5 : cx-R-5);
+      const ly = n.label ? cy - n.label.y : cy+4;
+      const anchor = n.label ? 'middle' : (labelRight ? 'start' : 'end');
       const dec = (n.decorators && n.decorators.length)
-        ? `<text x="${cx}" y="${cy-24}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="11" fill="var(--ink-faint)">${esc(n.decorators.join(' '))}</text>` : '';
+        ? `<text x="${cx}" y="${cy-R-8}" text-anchor="middle" font-family="${FONT_MONO}" font-size="10" fill="var(--ink-faint)">${esc(n.decorators.join(' '))}</text>` : '';
       g += `<g data-id="${n.id}" data-kind="node" style="cursor:pointer;">
         ${guides}${ring}${inertia}
-        ${nodeGlyph(n, cx, cy, sel)}
+        ${nodeGlyph(n, cx, cy)}
         ${dec}
-        <text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="14" fill="var(--ink)">${esc(n.name)}</text>
+        <text x="${lx}" y="${ly}" text-anchor="${anchor}" font-family="${FONT_MONO}" font-size="12" fill="var(--ink)">${esc(n.name)}</text>
       </g>`;
     });
     nodesLayer.innerHTML = g;
@@ -834,20 +870,19 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     // --- notes ---
     let nt = '';
     notes.forEach(o=>{
-      const cx=o.x*1000, cy=o.y*1000;
+      const cx=px(o.x), cy=py(o.y);
       const sel = (selectedKind==='note' && o.id===selectedId);
-      const box = sel ? `<rect x="${cx-6}" y="${cy-16}" width="12" height="22" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>` : '';
+      const box = sel ? `<rect x="${cx-4}" y="${cy-13}" width="8" height="17" fill="none" stroke="var(--accent)" stroke-width="1.25" opacity="0.6"/>` : '';
       nt += `<g data-id="${o.id}" data-kind="note" style="cursor:pointer;">
         ${box}
-        <text x="${cx}" y="${cy}" font-family="Space Grotesk, system-ui, sans-serif" font-style="italic" font-size="15" fill="${sel?'var(--accent)':'var(--ink-dim)'}">${esc(o.text)}</text>
+        <text x="${cx}" y="${cy}" font-family="Space Grotesk, system-ui, sans-serif" font-style="italic" font-size="13" fill="${sel?'var(--accent)':'var(--ink-dim)'}">${esc(o.text)}</text>
       </g>`;
     });
     notesLayer.innerHTML = nt;
 
     hint.style.display = (nodes.length || notes.length) ? 'none' : 'block';
-    const carriedCount = preserved.length;
-    carriedEl.classList.toggle('show', carriedCount > 0);
-    if(carriedCount) carriedEl.textContent = carriedCount + ' carried through';
+    carriedEl.classList.toggle('show', preserved.length > 0);
+    if(preserved.length) carriedEl.textContent = preserved.length + ' carried through';
   }
 
   function renderBanner(){
@@ -1179,8 +1214,9 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         const m = mid(p[0],p[1]);
         const r = board.getBoundingClientRect();
         const rx=(m.x-r.left)/r.width, ry=(m.y-r.top)/r.height;
-        const ax=vb.x+rx*vb.w, ay=vb.y+ry*vb.h, ns=1000/tz;
-        vb={x:ax-rx*ns, y:ay-ry*ns, w:ns, h:ns};
+        const ax=vb.x+rx*vb.w, ay=vb.y+ry*vb.h;
+        const nw=boardW/tz, nh=boardH/tz;
+        vb={x:ax-rx*nw, y:ay-ry*nh, w:nw, h:nh};
         clampVb(); zoomLevel=tz; applyViewBox();
       }
       pinchDist = nd;
@@ -1456,9 +1492,22 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   });
 
   // ---------- Init ----------
-  applyViewBox();
   const restored = loadSaved();
-  renderAll();
+  (function initBoard(){
+    const r = board.getBoundingClientRect();
+    if(!r.width || !r.height){ requestAnimationFrame(initBoard); return; }
+    boardW = r.width; boardH = r.height;
+    vb = {x:0, y:0, w:boardW, h:boardH};
+    applyViewBox();
+    buildGrid();
+    renderAll();
+  })();
+  if(window.ResizeObserver){
+    new ResizeObserver(handleBoardResize).observe(board);
+  } else {
+    window.addEventListener('resize', ()=> setTimeout(handleBoardResize, 100));
+    window.addEventListener('orientationchange', ()=> setTimeout(handleBoardResize, 250));
+  }
   if(!storageOK){
     setSaveStatus('off');
     setTimeout(()=> showToast("Storage blocked here — changes won't persist"), 700);
