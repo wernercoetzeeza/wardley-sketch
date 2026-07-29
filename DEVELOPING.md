@@ -41,10 +41,10 @@ app's info card won't be the version actually running:
 
 ```js
 // index.html — near the top of the <script>
-const APP_VERSION = '1.1.1';             // was 1.1.0
+const APP_VERSION = '1.2.1';             // was 1.2.0
 
 // sw.js — first line
-const CACHE = 'wardley-sketch-v1.1.1';   // was v1.1.0
+const CACHE = 'wardley-sketch-v1.2.1';   // was v1.2.0
 ```
 
 Skip the `CACHE` bump and returning visitors keep serving the old cached copy.
@@ -106,6 +106,10 @@ carries its pipeline along, deleting one takes the pipeline with it. A pipeline
 naming a component that doesn't exist is the exception — it goes to `preserved`
 as `pipelineOrphan` and is re-emitted verbatim, because it was already dangling
 in the source file rather than broken by an edit here.
+
+OWM accepts the pipeline's opening brace either on the `pipeline Name {` line or
+on the line below it, and both appear in the wild — the parser looks ahead for a
+lone `{` so neither form is silently dropped.
 
 Two consequences worth remembering when changing the model:
 
