@@ -6,7 +6,7 @@ OnlineWardleyMaps DSL and finish it in a fuller editor.
 
 ### ▸ [Open the app](https://wernercoetzeeza.github.io/wardley-sketch/)
 
-Created by **Werner Coetzee** with Claude.ai — ExploreNew (Pty) Ltd · v1.3.1
+Created by **Werner Coetzee** with Claude.ai — ExploreNew (Pty) Ltd · v1.6.0
 
 ---
 
@@ -44,10 +44,11 @@ DSL, the de facto standard for maps-as-code.
 
 Components, anchors, markets, ecosystems, submaps, **pipelines** (both the
 `pipeline Name [x, y]` and nested `pipeline Name { ... }` forms), `evolve`,
-`inertia`, notes, label offsets and every link type are drawn on the canvas.
-Anything the sketch tool doesn't draw — annotations, `style`, `size` — is
-**carried through untouched**, so importing a map, tweaking it here, and
-exporting it again never loses work.
+`inertia`, notes, **annotations** (numbered markers, including multi-point
+ones), label offsets and every link type are drawn on the canvas. Anything
+the sketch tool doesn't draw — `style`, `size`, submap URLs — is **carried
+through untouched**, so importing a map, tweaking it here, and exporting it
+again never loses work.
 
 ## Credit where it's due
 
@@ -71,11 +72,14 @@ maintained by [Damon Skelhorn](https://onlinewardleymaps.com/).
 - Maps are stored in your browser's local storage, so they're **per-device and
   per-browser**. Export a `.owm` file to move a map elsewhere or keep a backup.
 - Clearing your browser data will clear saved maps.
-- Annotations survive a round trip but aren't drawn, so a map using them will
-  look slightly sparser here than in OnlineWardleyMaps.
 - Pipeline stages are editable in the app: tap a component, switch **Pipeline**
   on, then **+ Stage**. A pipeline with stages takes its extent from them, so
   the start/end sliders only appear while it has none.
+- Annotations render and stay editable — rename, delete, or remove one
+  placement from a multi-point one — but there's no on-canvas way to create
+  a new one. They're a fairly advanced, infrequently-used construct, and the
+  create gesture that would fit them well never earned its complexity in
+  testing; import remains the way to add them.
 
 ## Licence
 

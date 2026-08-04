@@ -22,7 +22,7 @@
 :root{
   --bg:#1c1f1d; --panel:#23262a; --panel-2:#2b2f31; --panel-3:#32363a;
   --ink:#edeae0; --ink-dim:#8f8d82; --ink-faint:#8b897e;
-  --accent:#e8a33d; --accent-dim:#7a5a28; --accent-2:#4fa8a0; --danger:#d16b60;
+  --accent:#e8a33d; --accent-dim:#7a5a28; --accent-2:#4fa8a0; --danger:#d16b60; --annot:#a78bfa;
   --line: rgba(237,234,224,0.09); --zone-line: rgba(237,234,224,0.20);
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -226,6 +226,7 @@ body.kb-open .sheet{padding-bottom:0;}
 .row-dot{width:9px; height:9px; border-radius:50%; background:var(--accent); flex:0 0 auto;}
 .row-dot.anchor{border-radius:2px;}
 .row-dot.market,.row-dot.ecosystem{background:transparent; border:2px solid var(--accent);}
+.row-dot.annot{background:var(--annot);}
 .row-dot.submap{border-radius:2px; background:transparent; border:2px solid var(--accent);}
 .row-dot.note{background:var(--ink-faint); border-radius:1px;}
 .row-name{
@@ -385,6 +386,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         <g id="evolveLayer"></g>
         <g id="nodesLayer"></g>
         <g id="notesLayer"></g>
+        <g id="annotLayer"></g>
       </svg>
       <div class="hint" id="hint"><b>Hold</b> the board to place a component<br>Drag to reposition &middot; pinch to zoom</div>
       <div class="link-banner" id="linkBanner" hidden>
@@ -420,7 +422,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 <div class="overlay" id="importOverlay" hidden>
   <div class="card">
     <h2><span class="eyebrow" style="font-size:10px;">Import DSL</span></h2>
-    <p>Paste OnlineWardleyMaps syntax. Components, anchors, pipelines, evolve, inertia, notes and all link types are drawn; annotations and styling are carried through untouched on export.</p>
+    <p>Paste OnlineWardleyMaps syntax. Components, anchors, pipelines, evolve, inertia, notes, annotations and all link types are drawn; styling and anything else OWM supports is carried through untouched on export.</p>
     <textarea id="dslIn" spellcheck="false" aria-label="Wardley Maps DSL to import" placeholder="title My Map&#10;&#10;anchor Customer [0.95, 0.55]&#10;component Website [0.70, 0.75]&#10;evolve Website 0.85&#10;&#10;Customer-&gt;Website"></textarea>
     <div class="import-warn" id="importWarn" hidden></div>
     <div class="card-actions">
@@ -488,7 +490,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.3.1';
+  const APP_VERSION = '1.6.0';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
@@ -563,9 +565,14 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   // nodes: {id,name,kind,x,y,inertia,label,decorators,url,extra,evolve}
   // links: {id,a,b,op,flowLabel,ctx}
   // notes: {id,text,x,y}
+  // annotations: {id,number,points:[{x,y},...],text} — a numbered marker,
+  //   possibly placed at more than one point on the map
+  // annotationsBox: {x,y}|null — where the numbered legend sits, from the
+  //   `annotations [vis,evo]` directive; markers still show without one
   // preserved: raw OWM statements we don't draw but never destroy
   let title = "Untitled Map";
-  let nodes = [], links = [], notes = [], preserved = [];
+  let nodes = [], links = [], notes = [], annotations = [], preserved = [];
+  let annotationsBox = null;
   let nextId = 1;
   let selectedId = null, selectedKind = null;   // 'node' | 'note'
   let linkFromId = null;
@@ -596,6 +603,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   const evolveLayer = document.getElementById('evolveLayer');
   const nodesLayer = document.getElementById('nodesLayer');
   const notesLayer = document.getElementById('notesLayer');
+  const annotLayer = document.getElementById('annotLayer');
   const hint = document.getElementById('hint');
   const linkBanner = document.getElementById('linkBanner');
   const linkBannerText = document.getElementById('linkBannerText');
@@ -710,8 +718,46 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     {re:/-\.->/, op:"-.->"}, {re:/-->/, op:"-->"}, {re:/->/, op:"->"}
   ];
 
+  // Shared by parseDSL and the localStorage migration that promotes
+  // annotations out of old maps' `preserved` bucket. Real OWM syntax:
+  //   annotation 1 [[.38,.4],[0.44,0.33]] Standardising power allows evolution
+  //   annotations [0.05, 0.9]
+  function parseAnnotationLine(raw){
+    // OWM's own docs show two forms — accept both, always emit the
+    // canonical array form on export (a lossless normalisation, same as
+    // how a pipeline's brace always re-emits on its own line regardless
+    // of which style was imported).
+    //   annotation 1 [[.38,.4],[0.44,0.33]] text   (multi-point, canonical)
+    //   annotation 1 [.38, .4] text                (single-point shorthand)
+    let m = raw.match(/^annotation\s+(\S+)\s*\[\s*((?:\[[^\]]*\]\s*,?\s*)+)\]\s*(.*)$/i);
+    let pointsRaw = m ? m[2] : null;
+    if(!m){
+      m = raw.match(/^annotation\s+(\S+)\s*\[\s*(-?[\d.]+\s*,\s*-?[\d.]+)\s*\]\s*(.*)$/i);
+      if(m) pointsRaw = `[${m[2]}]`;
+    }
+    if(!m) return null;
+    const points = [];
+    const ptRe = /\[\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\]/g;
+    let pm;
+    while((pm = ptRe.exec(pointsRaw))){
+      const vis = parseFloat(pm[1]), evo = parseFloat(pm[2]);
+      if(isFinite(vis) && isFinite(evo)) points.push({x:r2(clamp(evo)), y:r2(clamp(1-vis))});
+    }
+    const text = m[3].trim();
+    if(!points.length || !text) return null;
+    return {number: m[1].slice(0,10), points, text: text.slice(0,200)};
+  }
+  function parseAnnotationsBoxLine(raw){
+    const m = raw.match(/^annotations\s*\[\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\]\s*$/i);
+    if(!m) return null;
+    const vis = parseFloat(m[1]), evo = parseFloat(m[2]);
+    if(!isFinite(vis) || !isFinite(evo)) return null;
+    return {x:r2(clamp(evo)), y:r2(clamp(1-vis))};
+  }
+
   function parseDSL(text){
-    const res = {title:null, nodes:[], links:[], notes:[], pipelines:[], preserved:[], skipped:0, stats:{}};
+    const res = {title:null, nodes:[], links:[], notes:[], pipelines:[],
+                  annotations:[], annotationsBox:null, preserved:[], skipped:0, stats:{}};
     const seen = new Map();
     const rawLinks = [];
     const lines = String(text).split(/\r?\n/);
@@ -800,6 +846,11 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         }
       }
 
+      const box = parseAnnotationsBoxLine(line);
+      if(box){ res.annotationsBox = box; continue; }
+      const ann = parseAnnotationLine(line);
+      if(ann){ res.annotations.push(ann); continue; }
+
       let body = line, ctx = null;
       const semi = body.indexOf(';');
       if(semi > -1){ ctx = body.slice(semi+1).trim() || null; body = body.slice(0, semi); }
@@ -880,6 +931,14 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     if(notes.length){
       out.push('');
       notes.forEach(nt=> out.push(`note ${nt.text} [${(1-nt.y).toFixed(2)}, ${nt.x.toFixed(2)}]`));
+    }
+    if(annotations.length){
+      out.push('');
+      annotations.forEach(a=>{
+        const pts = a.points.map(p=>`[${(1-p.y).toFixed(2)}, ${p.x.toFixed(2)}]`).join(',');
+        out.push(`annotation ${a.number} [${pts}] ${a.text}`);
+      });
+      if(annotationsBox) out.push(`annotations [${(1-annotationsBox.y).toFixed(2)}, ${annotationsBox.x.toFixed(2)}]`);
     }
     if(links.length){
       out.push('');
@@ -1057,7 +1116,40 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     });
     notesLayer.innerHTML = nt;
 
-    hint.style.display = (nodes.length || notes.length) ? 'none' : 'block';
+    // --- annotations: numbered markers, an optional connecting line for
+    //     multi-point ones, and a legend box wherever the map placed it ---
+    let an = '';
+    annotations.forEach(a=>{
+      const sel = (selectedKind==='annot' && a.id===selectedId);
+      const pxs = a.points.map(pt=>({cx:px(pt.x), cy:py(pt.y)}));
+      if(pxs.length > 1){
+        const path = pxs.map(p=>`${p.cx},${p.cy}`).join(' ');
+        an += `<polyline points="${path}" fill="none" stroke="var(--annot)" stroke-width="1.25" stroke-dasharray="2 4" opacity="0.55"/>`;
+      }
+      pxs.forEach(p=>{
+        const ring = sel ? `<circle cx="${p.cx}" cy="${p.cy}" r="${R+5}" fill="none" stroke="var(--annot)" stroke-width="1.75"/>` : '';
+        an += `<g data-id="${a.id}" data-kind="annot" style="cursor:pointer;">
+          ${ring}
+          <circle cx="${p.cx}" cy="${p.cy}" r="8" fill="var(--annot)" stroke="var(--bg)" stroke-width="2"/>
+          <text x="${p.cx}" y="${p.cy+3.5}" text-anchor="middle" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="10" font-weight="600" fill="var(--bg)">${esc(a.number)}</text>
+        </g>`;
+      });
+    });
+    if(annotationsBox && annotations.length){
+      const bx = px(annotationsBox.x), by = py(annotationsBox.y);
+      const lineH = 15;
+      const boxH = annotations.length*lineH + 10;
+      const boxW = Math.min(boardW*0.7, 260);
+      an += `<rect x="${bx}" y="${by}" width="${boxW}" height="${boxH}" rx="6" fill="var(--bg)" fill-opacity="0.72" stroke="var(--annot)" stroke-width="1.25"/>`;
+      annotations.forEach((a,i)=>{
+        const ty = by + 17 + i*lineH;
+        an += `<text x="${bx+10}" y="${ty}" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="10.5" fill="var(--annot)">${esc(a.number)}</text>`;
+        an += `<text x="${bx+26}" y="${ty}" font-family="JetBrains Mono, ui-monospace, Menlo, monospace" font-size="10.5" fill="var(--ink-dim)">${esc(a.text.length>44?a.text.slice(0,43)+'…':a.text)}</text>`;
+      });
+    }
+    annotLayer.innerHTML = an;
+
+    hint.style.display = (nodes.length || notes.length || annotations.length) ? 'none' : 'block';
     carriedEl.classList.toggle('show', preserved.length > 0);
     if(preserved.length) carriedEl.textContent = preserved.length + ' carried through';
   }
@@ -1071,7 +1163,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   }
 
   function renderSheet(){
-    const total = nodes.length + notes.length;
+    const total = nodes.length + notes.length + annotations.length;
     sheetCount.textContent = total + (total===1 ? ' element' : ' elements');
     const credit = '<div class="credit-line" id="creditLine">'
       + 'Wardley Mapping created by <b>Simon Wardley</b><br>'
@@ -1108,7 +1200,28 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         </button>
       </div>`;
     });
+    annotations.forEach(a=>{
+      const sel = (selectedKind==='annot' && a.id===selectedId);
+      s += `<div class="row${sel?' selected':''}" data-row-id="${a.id}" data-row-kind="annot">
+        <span class="row-dot annot"></span>
+        <input class="row-name" data-annot-id="${a.id}" value="${esc(a.text)}" maxlength="200" aria-label="Annotation text">
+        <span class="row-meta">#${esc(a.number)}${a.points.length>1?' &middot;'+a.points.length+'pt':''}</span>
+        <button class="row-btn del" data-action="delete" data-id="${a.id}" data-kind="annot" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>
+        </button>
+      </div>`;
+      if(sel && a.points.length>1) s += annotPointsHTML(a);
+    });
     sheetList.innerHTML = s + credit;
+  }
+
+  function annotPointsHTML(a){
+    const chips = a.points.map((pt,idx)=>
+      `<button class="chip" data-action="deleteAnnotPoint" data-id="${a.id}" data-idx="${idx}" title="Remove this placement">v${(1-pt.y).toFixed(2)} e${pt.x.toFixed(2)} &times;</button>`
+    ).join('');
+    return `<div class="detail" style="border-radius:0 0 10px 10px; margin-bottom:6px;">
+      <div class="detail-row"><span class="detail-label">Points</span>${chips}</div>
+    </div>`;
   }
 
   function detailHTML(n){
@@ -1193,7 +1306,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     if(!storageOK) return;
     clearTimeout(saveTimer); saveTimer = null;
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({v:3, title, nodes, links, notes, preserved, nextId}));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({v:4, title, nodes, links, notes, annotations, annotationsBox, preserved, nextId}));
       setSaveStatus('saved');
     }catch(e){ storageOK = false; setSaveStatus('off'); }
   }
@@ -1249,6 +1362,18 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       .filter(o=>o && o.id!=null)
       .map(o=>({id:num(o.id,0), text:String(o.text||'note').slice(0,80),
                 x:clamp(num(o.x,0.5)), y:clamp(num(o.y,0.5))}));
+    annotations = (Array.isArray(d.annotations)?d.annotations:[])
+      .filter(a=>a && a.id!=null && Array.isArray(a.points) && a.points.length)
+      .map(a=>({
+        id:num(a.id,0),
+        number:String(a.number||'?').slice(0,10),
+        points:a.points.filter(pt=>pt && isFinite(pt.x) && isFinite(pt.y))
+                        .map(pt=>({x:clamp(pt.x), y:clamp(pt.y)})).slice(0,12),
+        text:String(a.text||'').slice(0,200)
+      }))
+      .filter(a=>a.points.length>0);
+    annotationsBox = (d.annotationsBox && isFinite(d.annotationsBox.x) && isFinite(d.annotationsBox.y))
+      ? {x:clamp(d.annotationsBox.x), y:clamp(d.annotationsBox.y)} : null;
     preserved = Array.isArray(d.preserved) ? d.preserved.filter(p=>p && typeof p==='object') : [];
 
     // Maps saved before pipelines were drawn kept them as raw preserved
@@ -1275,9 +1400,24 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     });
     title = (typeof d.title==='string' && d.title.trim()) ? d.title.trim().slice(0,60) : 'Untitled Map';
     titleInput.value = title;
-    const maxId = Math.max(0, ...nodes.map(n=>n.id), ...links.map(l=>l.id), ...notes.map(o=>o.id));
+    const maxId = Math.max(0, ...nodes.map(n=>n.id), ...links.map(l=>l.id),
+      ...notes.map(o=>o.id), ...annotations.map(a=>a.id));
     nextId = Math.max(num(d.nextId,1), maxId+1);
-    return (nodes.length + notes.length) > 0;
+
+    // Maps saved before annotations were drawn kept them as raw preserved
+    // lines. Promote any that parse cleanly — done after nextId above is
+    // finalised, so the fresh ids minted here can't collide with anything
+    // already loaded.
+    preserved = preserved.filter(pr=>{
+      if(pr.kind !== 'raw') return true;
+      const box = parseAnnotationsBoxLine(pr.raw);
+      if(box){ if(!annotationsBox) annotationsBox = box; return false; }
+      const a = parseAnnotationLine(pr.raw);
+      if(a){ annotations.push(Object.assign({id:nextId++}, a)); return false; }
+      return true;
+    });
+
+    return (nodes.length + notes.length + annotations.length) > 0;
   }
   window.addEventListener('pagehide', ()=>{ if(saveTimer) saveNow(); });
   document.addEventListener('visibilitychange', ()=>{
@@ -1323,6 +1463,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   }
   function deleteEl(id, kind){
     if(kind === 'note'){ notes = notes.filter(o=>o.id!==id); }
+    else if(kind === 'annot'){ annotations = annotations.filter(a=>a.id!==id); }
     else{
       const gone = nodes.find(n=>n.id===id);
       nodes = nodes.filter(n=>n.id!==id);
@@ -1350,6 +1491,11 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   function renameNote(id, val){
     const o = notes.find(o=>o.id===id);
     if(o) o.text = val.trim().slice(0,80) || o.text;
+    renderAll(); scheduleSave();
+  }
+  function renameAnnotation(id, val){
+    const a = annotations.find(a=>a.id===id);
+    if(a) a.text = val.trim().slice(0,200) || a.text;
     renderAll(); scheduleSave();
   }
   function addLink(a,b){
@@ -1509,6 +1655,19 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       dragMoved=true; clearTimeout(longPressTimer); stopPressIndicator();
     }
     if(dragId !== null && dragMoved){
+      if(dragKind === 'annot'){
+        // Annotation points aren't drag-repositionable yet — treat this
+        // like a drag that started on empty canvas so panning still works
+        // rather than swallowing the gesture.
+        if(zoomLevel > 1.02 && panLast){
+          const r = board.getBoundingClientRect();
+          vb.x -= ((e.clientX-panLast.x)/r.width)*vb.w;
+          vb.y -= ((e.clientY-panLast.y)/r.height)*vb.h;
+          clampVb(); applyViewBox();
+          panLast = {x:e.clientX, y:e.clientY};
+        }
+        return;
+      }
       const f = clientToFrac(e.clientX, e.clientY);
       const coll = dragKind==='note' ? notes : nodes;
       const o = coll.find(o=>o.id===dragId);
@@ -1606,6 +1765,14 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         renderAll();
         if(linkFromId) sheet.classList.remove('expanded');
       }
+      if(btn.dataset.action === 'deleteAnnotPoint'){
+        const a = annotations.find(a=>a.id===id);
+        if(a){
+          a.points.splice(Number(btn.dataset.idx), 1);
+          if(a.points.length === 0) annotations = annotations.filter(x=>x.id!==id);
+          renderAll(); scheduleSave();
+        }
+      }
       return;
     }
     if(e.target.closest('#creditLine')){ openAbout(); return; }
@@ -1656,6 +1823,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     if(e.target.matches('.row-name')){
       if(e.target.dataset.nameId) renameNode(Number(e.target.dataset.nameId), e.target.value);
       else if(e.target.dataset.noteId) renameNote(Number(e.target.dataset.noteId), e.target.value);
+      else if(e.target.dataset.annotId) renameAnnotation(Number(e.target.dataset.annotId), e.target.value);
     }
   });
   sheetList.addEventListener('keydown', (e)=>{
@@ -1671,7 +1839,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   // ---------- Export ----------
   const exportOverlay = document.getElementById('exportOverlay');
   document.getElementById('exportBtn').addEventListener('click', ()=>{
-    if(nodes.length===0 && notes.length===0){ showToast('Add something first'); return; }
+    if(nodes.length===0 && notes.length===0 && annotations.length===0){ showToast('Add something first'); return; }
     document.getElementById('dslOut').value = generateDSL();
     exportOverlay.hidden = false;
   });
@@ -1777,6 +1945,8 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       op: l.op, flowLabel: l.flowLabel, ctx: l.ctx
     })).filter(l=> l.a != null && l.b != null);
     notes = p.notes.map(o=> Object.assign({}, o, {id: nextId++}));
+    annotations = p.annotations.map(a=> Object.assign({}, a, {id: nextId++}));
+    annotationsBox = p.annotationsBox;
     preserved = p.preserved;
     title = p.title || 'Untitled Map';
     titleInput.value = title;
@@ -1798,6 +1968,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     const bits = [p.nodes.length + ' component' + (p.nodes.length===1?'':'s')];
     if(p.links.length) bits.push(p.links.length + ' link' + (p.links.length===1?'':'s'));
     if(p.notes.length) bits.push(p.notes.length + ' note' + (p.notes.length===1?'':'s'));
+    if(p.annotations.length) bits.push(p.annotations.length + ' annotation' + (p.annotations.length===1?'':'s'));
     showToast('Imported ' + bits.join(', '));
     const extras = [];
     if(p.preserved.length) extras.push(p.preserved.length + ' statement' + (p.preserved.length===1?'':'s') + ' carried through');
@@ -1819,12 +1990,12 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   // ---------- Clear ----------
   const clearOverlay = document.getElementById('clearOverlay');
   document.getElementById('clearBtn').addEventListener('click', ()=>{
-    if(nodes.length===0 && notes.length===0 && preserved.length===0){ showToast('Nothing to clear'); return; }
+    if(nodes.length===0 && notes.length===0 && annotations.length===0 && preserved.length===0){ showToast('Nothing to clear'); return; }
     clearOverlay.hidden = false;
   });
   document.getElementById('clearCancelBtn').addEventListener('click', ()=> clearOverlay.hidden = true);
   document.getElementById('clearConfirmBtn').addEventListener('click', ()=>{
-    nodes=[]; links=[]; notes=[]; preserved=[];
+    nodes=[]; links=[]; notes=[]; annotations=[]; annotationsBox=null; preserved=[];
     selectedId=null; selectedKind=null; linkFromId=null;
     title = 'Untitled Map';
     titleInput.value = title;

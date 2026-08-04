@@ -41,10 +41,10 @@ app's info card won't be the version actually running:
 
 ```js
 // index.html — near the top of the <script>
-const APP_VERSION = '1.3.2';             // was 1.3.1
+const APP_VERSION = '1.6.1';             // was 1.6.0
 
 // sw.js — first line
-const CACHE = 'wardley-sketch-v1.3.2';   // was v1.3.1
+const CACHE = 'wardley-sketch-v1.6.1';   // was v1.6.0
 ```
 
 Skip the `CACHE` bump and returning visitors keep serving the old cached copy.
@@ -110,6 +110,32 @@ in the source file rather than broken by an edit here.
 OWM accepts the pipeline's opening brace either on the `pipeline Name {` line or
 on the line below it, and both appear in the wild — the parser looks ahead for a
 lone `{` so neither form is silently dropped.
+
+**Annotations are their own top-level array** (`annotations`, parallel to
+`notes`), since they don't belong to a single component the way pipelines and
+`evolve` do — a numbered marker can sit at more than one point on the map. OWM
+documents two accepted input shapes, a single-point shorthand
+(`annotation 1 [.38,.4] text`) and the canonical multi-point array
+(`annotation 1 [[.38,.4],[.44,.33]] text`); both are accepted on import, and
+export always normalises to the array form — a lossless simplification, the
+same trade the app already makes for pipeline braces. The `annotations [x,y]`
+directive positions an optional on-canvas legend; without it, numbered markers
+still render, and every annotation's text stays reachable from the tray
+regardless. Maps saved before this shipped had annotations sitting in
+`preserved` as raw lines; `loadSaved()` promotes any that still parse, the same
+pattern used for the pipeline migration.
+
+**No on-canvas creation, deliberately.** A two-step "arm a targeting mode,
+then tap the board" gesture was built and shipped for adding a new annotation
+placement (mirroring link mode), plus a third long-press option for a fresh
+single-point one. Both were pulled after hands-on testing — a modal
+point-picking flow for a construct this infrequently used added more friction
+than it saved. Render, rename, delete, and per-point removal on an existing
+annotation are all still fully supported (see `renameAnnotation()`,
+`deleteEl()`'s `'annot'` branch, and `annotPointsHTML()`); only the create
+path is import-only. If this changes again, `linkFromId` is the pattern worth
+copying — a single mode flag captured in `endPointer()` ahead of normal tap
+dispatch — but keep the interaction count to one step, not two.
 
 Two consequences worth remembering when changing the model:
 
