@@ -488,7 +488,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.2.2';
+  const APP_VERSION = '1.3.0';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
@@ -1075,7 +1075,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     sheetCount.textContent = total + (total===1 ? ' element' : ' elements');
     const credit = '<div class="credit-line" id="creditLine">'
       + 'Wardley Mapping created by <b>Simon Wardley</b><br>'
-      + 'App by <b>' + APP_CREATOR + '</b> &middot; v' + APP_VERSION + ' &middot; tap for credits</div>';
+      + 'App by <b>' + APP_CREATOR + '</b> with Claude.ai &middot; v' + APP_VERSION + ' &middot; tap for credits</div>';
     if(total === 0){
       sheetList.innerHTML = '<div class="empty-row">Nothing yet — hold the board to add something.</div>' + credit;
       return;
@@ -1791,7 +1791,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   // ---------- About ----------
   const aboutOverlay = document.getElementById('aboutOverlay');
   document.getElementById('verBadge').textContent = 'v' + APP_VERSION;
-  document.getElementById('creatorLine').textContent = 'Created by ' + APP_CREATOR;
+  document.getElementById('creatorLine').textContent = 'Created by ' + APP_CREATOR + ' with Claude.ai';
   document.getElementById('copyLine').textContent = '\u00A9 ' + APP_YEAR + ' ' + APP_COMPANY;
   function openAbout(){ aboutOverlay.hidden = false; }
   document.getElementById('aboutTrigger').addEventListener('click', openAbout);
@@ -1808,6 +1808,8 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   document.getElementById('clearConfirmBtn').addEventListener('click', ()=>{
     nodes=[]; links=[]; notes=[]; preserved=[];
     selectedId=null; selectedKind=null; linkFromId=null;
+    title = 'Untitled Map';
+    titleInput.value = title;
     renderAll(); saveNow();
     clearOverlay.hidden = true;
     showToast('Map cleared');
