@@ -488,7 +488,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.3.0';
+  const APP_VERSION = '1.3.1';
   const APP_CREATOR = 'Werner Coetzee';
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
@@ -1299,7 +1299,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     selectedId = o.id; selectedKind = 'note';
     renderAll(); scheduleSave(); expandTo(o.id);
   }
-  function expandTo(id){
+  function expandTo(id, focusInput){
     sheet.classList.add('expanded');
     requestAnimationFrame(()=>{
       const row = sheetList.querySelector(`[data-row-id="${id}"]`);
@@ -1310,6 +1310,15 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
         sheetList.scrollTop = Math.max(0, sheetList.scrollTop + (rr.top - lr.top) - 8);
       }
       resetStrayScroll();
+      // The row was just rebuilt, so any focus the tap itself set on the
+      // old name input is gone — restore it on the new one.
+      if(focusInput){
+        const inp = row.querySelector('.row-name');
+        if(inp){
+          inp.focus();
+          try{ inp.setSelectionRange(inp.value.length, inp.value.length); }catch(_){}
+        }
+      }
     });
   }
   function deleteEl(id, kind){
@@ -1349,9 +1358,9 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     links.push({id:nextId++, a, b, op:'->', flowLabel:null, ctx:null});
     scheduleSave();
   }
-  function selectEl(id, kind){
+  function selectEl(id, kind, focusInput){
     selectedId = id; selectedKind = kind;
-    renderAll(); expandTo(id);
+    renderAll(); expandTo(id, focusInput);
   }
 
   // ---------- Long-press indicator ----------
@@ -1601,9 +1610,18 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     }
     if(e.target.closest('#creditLine')){ openAbout(); return; }
     const row = e.target.closest('[data-row-id]');
-    if(row && !e.target.matches('.row-name')){
-      selectEl(Number(row.dataset.rowId), row.dataset.rowKind);
+    if(!row) return;
+    const rowId = Number(row.dataset.rowId), rowKind = row.dataset.rowKind;
+    const alreadyOpen = (selectedKind===rowKind && selectedId===rowId);
+    if(e.target.matches('.row-name')){
+      // Tapping the name now opens the row too, not just the coordinate
+      // area — but only on the first tap. Once it's already open, leave
+      // the tap alone so it just focuses the field for editing, rather
+      // than re-rendering the row underneath the cursor on every tap.
+      if(!alreadyOpen) selectEl(rowId, rowKind, true);
+      return;
     }
+    selectEl(rowId, rowKind);
   });
 
   sheetList.addEventListener('input', (e)=>{
