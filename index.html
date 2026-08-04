@@ -201,6 +201,27 @@ body.kb-open .sheet{padding-bottom:0;}
 .about-block + .about-block{border-left-color:var(--accent-2);}
 .about-block a{color:var(--accent); text-decoration:none; font-weight:600;}
 .about-block + .about-block a{color:var(--accent-2);}
+.about-block-title{font-size:11px; font-weight:700; color:var(--ink); margin:0 0 5px; letter-spacing:.02em;}
+.about-block p{margin:0 0 6px;}
+.about-pwa{
+  background:var(--panel-2); border-left:2px solid var(--accent);
+  border-radius:6px; padding:10px 12px; font-size:12.5px; line-height:1.6; color:var(--ink-dim);
+}
+.about-pwa p{margin:0 0 6px;}
+.about-pwa p:last-child{margin-bottom:0;}
+.about-pwa strong{color:var(--ink); font-weight:600;}
+.about-divider{border-top:1px solid var(--line); margin:0;}
+.about-tagline{margin:0; font-size:13px; line-height:1.55; color:var(--ink-dim);}
+.about-links{display:flex; flex-direction:column; gap:8px;}
+.about-links a{
+  color:var(--ink-dim); text-decoration:none; font-size:12.5px; font-weight:500;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.about-links a:active{color:var(--accent);}
+.about-links a span{color:var(--accent); font-weight:600;}
+.about-creator{text-align:left; padding:2px 0;}
+.about-creator p{margin:0;}
+.about-ai-note{font-size:10.5px; color:var(--ink-faint); margin-top:3px !important;}
 .ver-badge{
   font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:10px; letter-spacing:.06em;
   color:var(--ink-faint); background:var(--panel-2); border:1px solid var(--line);
@@ -208,13 +229,14 @@ body.kb-open .sheet{padding-bottom:0;}
 }
 .about-name{font-size:17px; font-weight:600; color:var(--ink); margin:0;}
 .about-by{
-  font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11px; letter-spacing:.06em;
-  color:var(--accent); text-transform:uppercase; margin:0;
+  font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size:12.5px; font-weight:500; color:var(--ink-dim); margin:0;
 }
 .about-licence{
   font-size:11.5px; line-height:1.6; color:var(--ink-faint);
   border-top:1px solid var(--line); padding-top:10px;
 }
+.about-licence a{color:var(--ink-dim); text-underline-offset:2px;}
 .about-block strong{color:var(--ink); font-weight:600;}
 .eyebrow.tappable{cursor:pointer;}
 .row{
@@ -453,18 +475,50 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
     <h2><span class="eyebrow" style="font-size:10px;">About</span><span class="ver-badge" id="verBadge">v0.0.0</span></h2>
     <div>
       <p class="about-name">Wardley Sketch</p>
-      <p class="about-by" id="creatorLine">Created by Werner</p>
+      <p class="about-tagline">A mobile-first sketchpad for Wardley Maps. Designed for capturing ideas while reading, travelling or discussing strategy away from your desk.</p>
     </div>
-    <p>A minimalist sketch tool for Wardley Maps — rough out a map on your phone, then export it to a fuller editor.</p>
+
+    <div class="about-pwa">
+      <p class="about-block-title">Installable</p>
+      <p>This is a Progressive Web App — install it for a full-screen, offline-ready experience with no browser chrome.</p>
+      <p><strong>iPhone/iPad:</strong> Share &rarr; Add to Home Screen<br><strong>Android/desktop:</strong> tap the install icon in the address bar</p>
+    </div>
+
+    <div class="about-divider"></div>
+
     <div class="about-block">
-      <strong>Wardley Mapping</strong> was created by <strong>Simon Wardley</strong> in 2005 and given freely to the community under a Creative Commons Share Alike licence. This app is only a sketchpad for a method that is entirely his.<br>
+      <p class="about-block-title">Wardley Mapping</p>
+      <p>Created by <strong>Simon Wardley</strong> in 2005 and given freely to the community under a Creative Commons Share Alike licence. This app is only a sketchpad for a method that is entirely his.</p>
       <a href="https://blog.gardeviance.org/" target="_blank" rel="noopener noreferrer">blog.gardeviance.org &nearr;</a>
     </div>
+
+    <div class="about-divider"></div>
+
     <div class="about-block">
-      The map syntax read and written here is the <strong>OnlineWardleyMaps</strong> (OWM) format, created and maintained by Damon Skelhorn.<br>
+      <p class="about-block-title">OnlineWardleyMaps DSL</p>
+      <p>The map syntax read and written here, created and maintained by Damon Skelhorn.</p>
       <a href="https://onlinewardleymaps.com/" target="_blank" rel="noopener noreferrer">onlinewardleymaps.com &nearr;</a>
     </div>
-    <p class="about-licence"><span id="copyLine">&copy; 2026</span><br>Released under the MIT Licence. That covers this app's code only — the Wardley Mapping method remains Simon Wardley's work under Creative Commons Share Alike.</p>
+
+    <div class="about-divider"></div>
+
+    <div class="about-links">
+      <p class="about-block-title">Source Code</p>
+      <a href="https://github.com/wernercoetzeeza/wardley-sketch" target="_blank" rel="noopener noreferrer">GitHub <span>&nearr;</span></a>
+      <a href="https://github.com/wernercoetzeeza/wardley-sketch/blob/main/README.md" target="_blank" rel="noopener noreferrer">README <span>&nearr;</span></a>
+      <a href="https://github.com/wernercoetzeeza/wardley-sketch/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">Roadmap <span>&nearr;</span></a>
+      <a href="https://github.com/wernercoetzeeza/wardley-sketch/issues/new" target="_blank" rel="noopener noreferrer">Report an Issue <span>&nearr;</span></a>
+    </div>
+
+    <div class="about-divider"></div>
+
+    <div class="about-creator">
+      <p class="about-by" id="creatorLine">Created by Werner Coetzee</p>
+      <p class="about-ai-note">AI-assisted development using Claude</p>
+    </div>
+
+    <p class="about-licence"><a href="https://github.com/wernercoetzeeza/wardley-sketch/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a><br><span id="copyLine">&copy; 2026</span></p>
+
     <div class="card-actions">
       <button class="btn btn-accent" id="aboutCloseBtn">Close</button>
     </div>
@@ -490,8 +544,11 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.6.0';
+  const APP_VERSION = '1.7.2';
   const APP_CREATOR = 'Werner Coetzee';
+  // Not shown in the app itself — the About page's copyright line uses
+  // just APP_CREATOR — but kept here since it's the legal entity named
+  // in LICENSE, for anything that ever needs the full name.
   const APP_COMPANY = 'ExploreNew (Pty) Ltd';
   const APP_YEAR = '2026';
 
@@ -1980,8 +2037,8 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
   // ---------- About ----------
   const aboutOverlay = document.getElementById('aboutOverlay');
   document.getElementById('verBadge').textContent = 'v' + APP_VERSION;
-  document.getElementById('creatorLine').textContent = 'Created by ' + APP_CREATOR + ' with Claude.ai';
-  document.getElementById('copyLine').textContent = '\u00A9 ' + APP_YEAR + ' ' + APP_COMPANY;
+  document.getElementById('creatorLine').textContent = 'Created by ' + APP_CREATOR;
+  document.getElementById('copyLine').textContent = '\u00A9 ' + APP_YEAR + ' ' + APP_CREATOR;
   function openAbout(){ aboutOverlay.hidden = false; }
   document.getElementById('aboutTrigger').addEventListener('click', openAbout);
   document.getElementById('aboutBtn').addEventListener('click', openAbout);

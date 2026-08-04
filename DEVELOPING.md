@@ -33,6 +33,8 @@ nothing errors.
 | `icon-192.png`, `icon-512.png` | App icons |
 | `icon-512-maskable.png` | Android adaptive icon (padded safe zone) |
 | `apple-touch-icon.png` | iOS home screen icon |
+| `ROADMAP.md` | Ideas under consideration and what's deliberately out of scope |
+| `screenshots/` | README images |
 
 ## Releasing a change
 
@@ -41,10 +43,10 @@ app's info card won't be the version actually running:
 
 ```js
 // index.html — near the top of the <script>
-const APP_VERSION = '1.6.1';             // was 1.6.0
+const APP_VERSION = '1.7.3';             // was 1.7.2
 
 // sw.js — first line
-const CACHE = 'wardley-sketch-v1.6.1';   // was v1.6.0
+const CACHE = 'wardley-sketch-v1.7.3';   // was v1.7.2
 ```
 
 Skip the `CACHE` bump and returning visitors keep serving the old cached copy.

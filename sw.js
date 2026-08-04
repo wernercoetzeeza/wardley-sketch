@@ -1,7 +1,7 @@
 // Wardley Sketch service worker.
 // Bump CACHE when you change any app file, otherwise returning
 // visitors keep the old cached copy for an extra load.
-const CACHE = 'wardley-sketch-v1.6.0';
+const CACHE = 'wardley-sketch-v1.7.2';
 
 const ASSETS = [
   './',

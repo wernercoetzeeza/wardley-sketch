@@ -6,7 +6,56 @@ OnlineWardleyMaps DSL and finish it in a fuller editor.
 
 ### ▸ [Open the app](https://wernercoetzeeza.github.io/wardley-sketch/)
 
-Created by **Werner Coetzee** with Claude.ai — ExploreNew (Pty) Ltd · v1.6.0
+Created by **Werner Coetzee** with Claude.ai — ExploreNew (Pty) Ltd · v1.7.2
+
+---
+
+## Why Wardley Sketch Exists
+
+I built Wardley Sketch while reading *The Value Flywheel Effect*.
+
+I wanted to practice Wardley Mapping as I read, often with just an iPad or my
+phone. Existing desktop tools are excellent for workshops and detailed
+modelling, but I found them cumbersome for quick sketching on mobile devices.
+
+Wardley Sketch isn't trying to replace those tools. It's a digital napkin —
+a fast, touch-first place to capture an idea in a few minutes, then export it
+to OnlineWardleyMaps DSL when you want to refine it.
+
+---
+
+## Philosophy
+
+Wardley Sketch is intentionally small.
+
+- Mobile first
+- Touch first
+- Fast enough for a coffee shop conversation
+- Fast enough to use while reading a book
+- Compatible with the OnlineWardleyMaps DSL
+- Not a replacement for desktop mapping tools
+
+## Who is it for?
+
+Wardley practitioners who want to:
+
+- sketch ideas while reading
+- capture maps during meetings
+- think on an iPad or phone
+- export later to OnlineWardleyMaps
+
+---
+
+## Screenshots
+
+The classic Tea Shop map, with a pipeline on Kettle:
+
+![The Tea Shop map rendered in Wardley Sketch, showing components, links, and a pipeline on the Kettle component](screenshots/teashop-pipeline.png)
+
+Tap a component to edit it — here Kettle is selected, showing its pipeline's
+start and end sliders:
+
+![Kettle selected in the component tray, showing its type, inertia/evolve/pipeline flags, and the pipeline start and end sliders](screenshots/kettle-pipeline-detail.png)
 
 ---
 
@@ -93,3 +142,5 @@ affected by the licence on this code.
 ---
 
 Running your own copy or contributing? See [`DEVELOPING.md`](DEVELOPING.md).
+Curious what's next, or what's been deliberately left out? See
+[`ROADMAP.md`](ROADMAP.md).
