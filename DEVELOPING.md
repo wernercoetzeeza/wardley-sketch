@@ -35,6 +35,7 @@ nothing errors.
 | `apple-touch-icon.png` | iOS home screen icon |
 | `ROADMAP.md` | Ideas under consideration and what's deliberately out of scope |
 | `screenshots/` | README images |
+| `og-image.png` | Social share preview card (Open Graph / Twitter Card) |
 
 ## Releasing a change
 
@@ -43,10 +44,10 @@ app's info card won't be the version actually running:
 
 ```js
 // index.html — near the top of the <script>
-const APP_VERSION = '1.7.3';             // was 1.7.2
+const APP_VERSION = '1.7.4';             // was 1.7.3
 
 // sw.js — first line
-const CACHE = 'wardley-sketch-v1.7.3';   // was v1.7.2
+const CACHE = 'wardley-sketch-v1.7.4';   // was v1.7.3
 ```
 
 Skip the `CACHE` bump and returning visitors keep serving the old cached copy.
