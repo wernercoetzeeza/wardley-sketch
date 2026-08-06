@@ -1,4 +1,27 @@
 <!DOCTYPE html>
+<!--
+  Wardley Sketch — a mobile-first sketchpad for Wardley Maps.
+  Copyright (C) 2026 Werner Coetzee, ExploreNew (Pty) Ltd
+
+  This program is free software: you can redistribute it and/or modify it
+  under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or (at
+  your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+  General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+  Source: https://github.com/wernercoetzeeza/wardley-sketch
+
+  The Wardley Mapping method is the work of Simon Wardley, shared under
+  Creative Commons Share Alike. The licence above covers this application's
+  code only and does not extend to the method itself.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -232,6 +255,10 @@ body.kb-open .sheet{padding-bottom:0;}
 }
 .about-links a:active{color:var(--accent);}
 .about-links a span{color:var(--accent); font-weight:600;}
+.about-source-note{
+  font-size:11px; line-height:1.55; color:var(--ink-faint);
+  margin:4px 0 0; font-weight:400;
+}
 .about-creator{text-align:left; padding:2px 0;}
 .about-creator p{margin:0;}
 .about-ai-note{font-size:10.5px; color:var(--ink-faint); margin-top:3px !important;}
@@ -521,6 +548,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       <a href="https://github.com/wernercoetzeeza/wardley-sketch/blob/main/README.md" target="_blank" rel="noopener noreferrer">README <span>&nearr;</span></a>
       <a href="https://github.com/wernercoetzeeza/wardley-sketch/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer">Roadmap <span>&nearr;</span></a>
       <a href="https://github.com/wernercoetzeeza/wardley-sketch/issues/new" target="_blank" rel="noopener noreferrer">Report an Issue <span>&nearr;</span></a>
+      <p class="about-source-note">Free software under the GNU AGPL v3. The complete source for the version running here is at the repository above.</p>
     </div>
 
     <div class="about-divider"></div>
@@ -530,7 +558,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
       <p class="about-ai-note">AI-assisted development using Claude</p>
     </div>
 
-    <p class="about-licence"><a href="https://github.com/wernercoetzeeza/wardley-sketch/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a><br><span id="copyLine">&copy; 2026</span></p>
+    <p class="about-licence"><a href="https://github.com/wernercoetzeeza/wardley-sketch/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">GNU AGPL v3</a><br><span id="copyLine">&copy; 2026</span></p>
 
     <div class="card-actions">
       <button class="btn btn-accent" id="aboutCloseBtn">Close</button>
@@ -557,7 +585,7 @@ textarea#dslIn::placeholder{color:var(--ink-faint);}
 
   // Bump this when you publish a change. Keep it in step with the
   // CACHE name in sw.js so returning visitors get the new build.
-  const APP_VERSION = '1.7.3';
+  const APP_VERSION = '2.0.0';
   const APP_CREATOR = 'Werner Coetzee';
   // Not shown in the app itself — the About page's copyright line uses
   // just APP_CREATOR — but kept here since it's the legal entity named

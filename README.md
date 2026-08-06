@@ -6,7 +6,7 @@ OnlineWardleyMaps DSL and finish it in a fuller editor.
 
 ### ▸ [Open the app](https://wernercoetzeeza.github.io/wardley-sketch/)
 
-Created by **Werner Coetzee** with Claude.ai — ExploreNew (Pty) Ltd · v1.7.3
+Created by **Werner Coetzee** with Claude.ai — ExploreNew (Pty) Ltd · v2.0.0
 
 ---
 
@@ -133,7 +133,14 @@ maintained by [Damon Skelhorn](https://onlinewardleymaps.com/).
 ## Licence
 
 Copyright &copy; 2026 Werner Coetzee, ExploreNew (Pty) Ltd.
-Released under the MIT Licence — see [`LICENSE`](LICENSE).
+Released under the **GNU Affero General Public License v3.0** — see
+[`LICENSE`](LICENSE).
+
+In short: you're free to use, study, modify and share this, but if you
+distribute it — or run a modified version as a network service — you must make
+your source available under the same licence. That last part is what
+distinguishes the AGPL from the ordinary GPL, and it's the reason for choosing
+it here: a hosted copy of this app is still covered.
 
 That covers this application's code only. The Wardley Mapping method itself is
 Simon Wardley's work, shared under Creative Commons Share Alike, and is not

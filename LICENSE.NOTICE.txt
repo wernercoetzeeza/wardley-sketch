@@ -1,0 +1,42 @@
+ACTION REQUIRED — replace LICENSE before publishing
+===================================================
+
+Wardley Sketch is now licensed under the GNU Affero General Public
+License v3.0. The LICENSE file in this bundle is still the old MIT text
+and MUST be replaced.
+
+Do this:
+
+  1. Download the canonical licence text:
+       https://www.gnu.org/licenses/agpl-3.0.txt
+
+  2. Save it as  LICENSE  in the repository root, replacing the
+     existing MIT file.
+
+  3. Delete this notice file.
+
+Why download it rather than have it generated: the AGPL text must be
+reproduced verbatim ("Everyone is permitted to copy and distribute
+verbatim copies of this license document, but changing it is not
+allowed"). Taking the file straight from the FSF guarantees that, and
+lets GitHub auto-detect the licence correctly.
+
+Optional but tidy: append the following after the licence text, to
+record the copyright holder and keep the Wardley Mapping attribution
+that was in the old MIT file.
+
+---8<---
+
+Copyright (C) 2026 Werner Coetzee, ExploreNew (Pty) Ltd
+
+The Wardley Mapping method is the work of Simon Wardley
+(https://blog.gardeviance.org/), provided to the community under a
+Creative Commons Share Alike licence. The AGPL licence above applies to
+this application's source code only and does not extend to the mapping
+method itself.
+
+---8<---
+
+Everything else in this bundle has already been switched over: the
+About page, the README, and the licence header at the top of
+index.html.
